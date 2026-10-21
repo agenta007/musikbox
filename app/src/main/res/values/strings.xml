@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">musikbox</string>
+    <string name="channel_downloads">Offline downloads</string>
+    <string name="channel_downloads_desc">Progress of playlists being saved for offline listening</string>
+</resources>

@@ -1,0 +1,17 @@
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+# Release signing — never commit, but BACK UP: updates must be signed with the same key.
+keystore/
+keystore.properties
+dist/
+version.properties.bak
+
+# Local-only
+hs_err_pid*.log
+*.hprof
+claude-resume.sh
