@@ -2,7 +2,10 @@ package app.musikbox.desktop
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -18,6 +21,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.musikbox.desktop.ui.AppUiState
+import app.musikbox.desktop.ui.LocalMotion
 import app.musikbox.desktop.ui.MusikboxApp
 import app.musikbox.desktop.ui.Navigator
 import app.musikbox.desktop.ui.Screen
@@ -96,10 +100,14 @@ fun main() {
             },
         ) {
             window.minimumSize = Dimension(980, 620)
-            // Coming back to the window: pull changes other devices made meanwhile.
+            // Coming back to the window: pull changes other devices made meanwhile, and repaint
+            // in full in case the compositor dropped frames while the screen was locked or asleep.
             DisposableEffect(window) {
                 val focus = object : java.awt.event.WindowAdapter() {
-                    override fun windowGainedFocus(e: java.awt.event.WindowEvent?) = container.onForeground()
+                    override fun windowGainedFocus(e: java.awt.event.WindowEvent?) {
+                        window.repaint()
+                        container.onForeground()
+                    }
                 }
                 window.addWindowFocusListener(focus)
                 onDispose { window.removeWindowFocusListener(focus) }
@@ -110,7 +118,11 @@ fun main() {
                     onQuit = ::quit,
                 )
             }
-            MusikboxApp(container, nav, ui, snackbar)
+            val locked by container.screenLock.locked.collectAsState()
+            LaunchedEffect(locked) { if (!locked) window.repaint() }
+            CompositionLocalProvider(LocalMotion provides (!locked && !windowState.isMinimized)) {
+                MusikboxApp(container, nav, ui, snackbar)
+            }
         }
     }
 }

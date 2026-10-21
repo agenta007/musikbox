@@ -84,6 +84,9 @@ class SpectrumAnalyzer(
         updatePeaks(dtMs)
     }
 
+    /** Every bar and peak cap has fallen to zero: nothing left to animate. */
+    val isSilent: Boolean get() = levels.all { it == 0f } && peaks.all { it == 0f }
+
     private fun decayAll(dtMs: Float) {
         for (b in 0 until bands) levels[b] = max(0f, levels[b] - dtMs / 400f)
         updatePeaks(dtMs)

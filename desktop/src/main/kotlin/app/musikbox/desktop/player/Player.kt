@@ -93,7 +93,7 @@ class Player(
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
     private val _position = MutableStateFlow(0L)
-    /** Playback position in ms; updated many times a second, kept apart from [state]. */
+    /** Playback position in ms, in 250 ms steps; kept apart from [state]. */
     val position: StateFlow<Long> = _position.asStateFlow()
 
     private val _sleep = MutableStateFlow<SleepTimer?>(null)
@@ -117,6 +117,15 @@ class Player(
 
     // ---------------------------------------------------------------- mpv events
 
+    /**
+     * mpv reports time-pos dozens of times a second and every change redraws the UI, so the
+     * published playhead moves in 250 ms steps (the visualizer interpolates in between).
+     */
+    private fun setPlayhead(ms: Long) {
+        val shown = _position.value
+        if (ms < shown || ms - shown >= 250) _position.value = ms
+    }
+
     private fun onEvent(e: MpvEvent) {
         when (e) {
             is MpvEvent.Property -> when (e.name) {
@@ -129,7 +138,7 @@ class Player(
                     if (vol != _state.value.volume) settings.update { it.copy(volume = vol) }
                 }
                 "time-pos" -> {
-                    e.value.asDouble?.let { _position.value = (it * 1000).toLong() }
+                    e.value.asDouble?.let { setPlayhead((it * 1000).toLong()) }
                     if (kotlin.math.abs(_position.value - lastSavedPosition) > 10_000) scheduleSave()
                     return // hot path: don't republish state
                 }

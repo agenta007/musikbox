@@ -70,7 +70,7 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
     val nav = LocalNav.current
     val player = c.player
     val state by player.state.collectAsState()
-    val position by player.position.collectAsState()
+    val position by rememberPlayhead()
     val song = state.song
     val tint by rememberArtworkColor(c.library.coverUrl(song?.coverArt, 300), MaterialTheme.colorScheme.primary)
     var addTarget by remember { mutableStateOf(false) }

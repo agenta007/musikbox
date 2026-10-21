@@ -24,6 +24,7 @@ import app.musikbox.sync.CloudSync
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import app.musikbox.desktop.player.TrackPcm
+import app.musikbox.desktop.player.ScreenLock
 
 /** Hand-rolled DI for the desktop app; mirrors the Android AppContainer. */
 class DesktopContainer {
@@ -45,6 +46,7 @@ class DesktopContainer {
     val trackPcm = TrackPcm(api, downloads, streamCache, settings, scope)
     var mpris: Mpris? = null
         private set
+    val screenLock = ScreenLock()
 
     val discover = DiscoverModel(DiscoverEngine(api), scope)
     val syncHost = DesktopSyncHost(settings, library, player)
@@ -83,6 +85,7 @@ class DesktopContainer {
     fun start(onRaise: () -> Unit, onQuit: () -> Unit): Result<Unit> {
         val playerResult = player.start()
         mpris = Mpris(player, library, scope, onRaise, onQuit).also { it.start() }
+        screenLock.start()
         if (settings.current.syncEnabled) startSync()
         // Any local favourite / play / download-list change is pushed to the other devices.
         scope.launch { library.prefsFlow.drop(1).collect { sync.requestSync(); cloud.requestSync() } }
@@ -93,6 +96,7 @@ class DesktopContainer {
         stopSync()
         player.shutdown()
         mpris?.stop()
+        screenLock.stop()
     }
 
     suspend fun signOut() {

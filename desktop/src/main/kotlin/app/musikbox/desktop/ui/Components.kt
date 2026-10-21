@@ -143,16 +143,28 @@ private fun rgbToHsl(argb: Int): Triple<Float, Float, Float> {
 
 @Composable
 fun Equalizer(color: Color, playing: Boolean, modifier: Modifier = Modifier, size: Dp = 14.dp) {
-    val t = rememberInfiniteTransition(label = "eq")
-    val bars = intArrayOf(520, 680, 450).mapIndexed { i, d ->
-        t.animateFloat(0.25f + i * 0.15f, 1f, infiniteRepeatable(tween(d, easing = LinearEasing), RepeatMode.Reverse), label = "bar$i")
+    // An infinite transition asks for a frame every vsync even when its value goes unused, so it
+    // only exists while it is visibly animating. Paused (or unseen) bars stand still and cost nothing.
+    if (playing && LocalMotion.current) {
+        val t = rememberInfiniteTransition(label = "eq")
+        val bars = intArrayOf(520, 680, 450).mapIndexed { i, d ->
+            t.animateFloat(0.25f + i * 0.15f, 1f, infiniteRepeatable(tween(d, easing = LinearEasing), RepeatMode.Reverse), label = "bar$i")
+        }
+        EqualizerBars(color, modifier, size) { bars[it].value }
+    } else {
+        EqualizerBars(color, modifier, size) { EQ_STILL[it] }
     }
-    val still = floatArrayOf(0.55f, 0.9f, 0.4f)
+}
+
+private val EQ_STILL = floatArrayOf(0.55f, 0.9f, 0.4f)
+
+@Composable
+private fun EqualizerBars(color: Color, modifier: Modifier, size: Dp, height: (Int) -> Float) {
     Canvas(modifier.size(size)) {
         val gap = this.size.width * 0.14f
         val w = (this.size.width - gap * 2) / 3f
         for (i in 0..2) {
-            val h = this.size.height * (if (playing) bars[i].value else still[i])
+            val h = this.size.height * height(i)
             drawRoundRect(color, Offset(i * (w + gap), this.size.height - h), Size(w, h), CornerRadius(w / 2.5f))
         }
     }

@@ -1,6 +1,10 @@
 package app.musikbox.desktop.ui
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -37,6 +41,19 @@ class Navigator {
 val LocalContainer = staticCompositionLocalOf<DesktopContainer> { error("No container") }
 val LocalNav = staticCompositionLocalOf<Navigator> { error("No navigator") }
 val LocalSnackbar = staticCompositionLocalOf { SnackbarHostState() }
+
+/** False while nobody can see the window (minimized, screen locked): continuous animations stop requesting frames. */
+val LocalMotion = compositionLocalOf { true }
+
+/** The player's position, frozen while [LocalMotion] is off so a hidden window draws nothing. */
+@Composable
+fun rememberPlayhead(): State<Long> {
+    val player = LocalContainer.current.player
+    val motion = LocalMotion.current
+    return produceState(player.position.value, motion) {
+        if (motion) player.position.collect { value = it }
+    }
+}
 
 /**
  * Whether a text field has keyboard focus. Global shortcuts (Space, Ctrl+arrows) are

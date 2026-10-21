@@ -35,7 +35,7 @@ import kotlin.math.sin
 fun SpectrumVisualizer(style: VisualizerStyle, tint: Color, modifier: Modifier = Modifier) {
     val c = LocalContainer.current
     val state by c.player.state.collectAsState()
-    val position by c.player.position.collectAsState()
+    val position by rememberPlayhead()
     val pcm by c.trackPcm.current.collectAsState()
     LaunchedEffect(state.song?.id) { c.trackPcm.ensure(state.song?.id) }
 
@@ -48,10 +48,14 @@ fun SpectrumVisualizer(style: VisualizerStyle, tint: Color, modifier: Modifier =
     val playing by rememberUpdatedState(state.isPlaying)
     val currentPcm by rememberUpdatedState(pcm?.takeIf { it.songId == state.song?.id })
     var frame by remember { mutableIntStateOf(0) }
+    val motion = LocalMotion.current
 
-    LaunchedEffect(analyzer) {
+    // Runs while playing, then until the bars have fallen to zero, then stops asking for frames.
+    // Restarts when playback resumes or the window becomes visible again.
+    LaunchedEffect(analyzer, state.isPlaying, motion) {
+        if (!motion) return@LaunchedEffect
         var last = 0L
-        while (true) {
+        while (playing || !analyzer.isSilent) {
             withFrameNanos { now ->
                 val dt = if (last == 0L) 16f else ((now - last) / 1e6f).coerceIn(1f, 100f)
                 last = now
