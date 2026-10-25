@@ -1,0 +1,26 @@
+musikbox is a music player for your own <a href="https://www.navidrome.org/">Navidrome</a> server, or any other Subsonic-compatible server. Most clients are organised around albums and artists; musikbox is organised around your playlists. They are all cached, so the app opens instantly and works offline.
+
+<b>What you need</b>
+musikbox brings no music and no streaming service. You need:
+<ul>
+<li>your own music files on a hard disk,</li>
+<li>a Navidrome (or Subsonic) server on an always-on computer with that disk: a home server, NAS, Raspberry Pi or rented server,</li>
+<li>that server reachable from the internet to listen away from home: a forwarded port on your router, or better a reverse proxy with HTTPS. At home its LAN address is enough, and a VPN works too.</li>
+</ul>
+
+<b>Features</b>
+<ul>
+<li>Home: recently played playlists, liked songs (your stars, synced through the server), saved playlists and all playlists, with filters, sorting and search by name.</li>
+<li>Offline: download playlists, or let rules download your liked songs, saved playlists or everything. A download manager shows per-song status, retries failures and can re-download or delete a whole list in one tap.</li>
+<li>Discover: a Discover Mix of songs you have never played, plus sections like "Sounds like your favourites", "Unplayed genres" and "Rediscover", built from your own listening history.</li>
+<li>Lyrics: synced lyrics that follow the song (tap a line to jump there), served by your Navidrome from .lrc files or tags. An optional fallback to LRCLIB is off by default and can point at your own instance.</li>
+<li>Visualizer: a spectrum in Bars, Mirror or Radial style, colored from the cover art. No microphone permission is needed.</li>
+<li>Sync: saved playlists and recently played sync between your devices through your server, and "Continue here" takes over another device's queue on your network.</li>
+<li>Playback: shuffle, repeat, editable queue, sleep timer, scrobbling, transcoding from 320 to 96 kbps, and controls in the notification, on the lock screen and over Bluetooth.</li>
+<li>Editing: create, rename and delete playlists, add and remove songs, star songs.</li>
+</ul>
+
+<b>Privacy</b>
+The password is never stored, only the Subsonic salted token. No analytics or trackers: musikbox talks only to your server and, for local sync, your own devices.
+
+A Linux desktop version with the same features is available from the source repository.

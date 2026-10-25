@@ -42,9 +42,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Release key from keystore.properties (created by deploy.sh); debug key as a fallback
-            // so a plain `assembleRelease` still yields an installable APK.
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // Release key from keystore.properties (created by deploy.sh). Without it the APK is
+            // left unsigned, which is what F-Droid builds and signs itself.
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 
@@ -62,6 +62,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    // The dependency metadata block is encrypted with a Google key; F-Droid asks for it to be left out.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
     lint {
         // Media3 marks much of its surface @UnstableApi; we opt in deliberately.

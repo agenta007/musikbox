@@ -1,0 +1,1 @@
+Playlist-first music player for Navidrome and Subsonic, with offline downloads

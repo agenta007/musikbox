@@ -1,0 +1,2 @@
+• Lyrics: synced lyrics from your Navidrome server follow the song; tap a line to jump there. Optional LRCLIB fallback (off by default, self-hostable). Lyrics are cached and fetched with downloads for offline use.
+• Released under the GPL-3.0-or-later license, ready for F-Droid.

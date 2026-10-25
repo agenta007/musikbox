@@ -11,6 +11,15 @@ Most clients are organised around albums and artists. musikbox is organised arou
 | System controls | notification, lock screen, Bluetooth | MPRIS (media keys, Plasma/GNOME, KDE Connect, `playerctl`) |
 | Requires | Android 12+ (targets Android 15) | Linux x86-64 with `mpv` installed; the JRE is bundled |
 
+## What you need
+
+musikbox is only a player. It brings no music and no streaming service, so you need your own server:
+
+- **Your own music files** (MP3, FLAC, Opus, AAC…) on a hard disk or SSD. musikbox plays what you own, nothing else.
+- **A [Navidrome](https://www.navidrome.org/docs/installation/) server** (or another Subsonic-compatible server) running on a computer that is always on and has that disk: a home server, NAS, Raspberry Pi or rented server. It indexes your files and streams them to the apps.
+- **The server reachable from the internet**, so the app works away from home: an open (forwarded) port on your router to Navidrome (4533 by default), or better a reverse proxy with HTTPS on 443, plus a domain name or dynamic DNS. At home, the server's LAN address is enough, and a VPN into your home network works too.
+- A Navidrome user account. Playlists are created in musikbox, in Navidrome's web UI, or come from `.m3u` files in your music folder.
+
 ## Features
 
 ### Home
@@ -72,17 +81,17 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 
 ## Install
 
-- **Android**: build an APK as shown below. An F-Droid release is being prepared.
+- **Android**: an F-Droid release is on its way; until then, build an APK as shown below.
 - **Linux desktop**: run `desktop/install.sh` (see below). It needs `mpv` (`sudo pacman -S mpv` or `sudo apt install mpv`).
 
 ## Building
 
-The build needs **JDK 17–21**, because AGP 8.7 doesn't run on newer JDKs. `gradle.properties` pins `org.gradle.java.home=/usr/lib/jvm/java-21-openjdk`: change it, or remove it to use `JAVA_HOME`. Android builds also need the Android SDK (API 35), configured through `local.properties` or `ANDROID_HOME`.
+The build needs **JDK 17–21**, because AGP 8.7 doesn't run on newer JDKs. Gradle uses `JAVA_HOME`; if your default JDK is newer, point it at an older one, or set `org.gradle.java.home=/usr/lib/jvm/java-21-openjdk` in `~/.gradle/gradle.properties`. Android builds also need the Android SDK (API 35), configured through `local.properties` or `ANDROID_HOME`.
 
 ```bash
 # Android
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease      # minified; signed with keystore.properties if present, else the debug key
+./gradlew :app:assembleRelease      # minified; signed with keystore.properties if present, else unsigned
 
 # Linux desktop
 ./gradlew :desktop:run                          # run from source
@@ -96,7 +105,7 @@ desktop/install.sh --uninstall                  # remove it; your data is kept
 MB_TEST_SERVER=http://127.0.0.1:4533 ./gradlew :core:test --rerun   # also run the tests that need a real Navidrome (they write test data to it)
 ```
 
-`deploy.sh` is the maintainer's release script. It bumps `version.properties`, builds, tests, signs and uploads the APK. Its upload target defaults to the maintainer's server, so set `MB_DEPLOY_REMOTE`, `MB_DEPLOY_DIR` and `MB_DEPLOY_URL` to use your own. Release keys (`keystore/`, `keystore.properties`) are never committed.
+`deploy.sh` is the maintainer's release script. It bumps `version.properties`, builds, tests, signs and uploads the APK, then commits the version and tags it `v<version>`, which is what F-Droid builds from. Its upload target defaults to the maintainer's server, so set `MB_DEPLOY_REMOTE`, `MB_DEPLOY_DIR` and `MB_DEPLOY_URL` to use your own. Release keys (`keystore/`, `keystore.properties`) are never committed.
 
 ### Desktop data
 
@@ -137,3 +146,7 @@ desktop/   Linux: JSON store, mpv player, MPRIS (dbus-java), Compose Desktop UI
 ```
 
 On Android, playback reads through two caches before it reaches the network: **download cache** (never evicted) → **stream cache** (LRU) → **HTTP**. Cache keys are `song:<id>:<bitrate>`, so the auth token in the URL never becomes part of a key, and transcoded bytes never mix with original files.
+
+## License
+
+musikbox is free software, licensed under the [GNU General Public License v3.0 or later](LICENSE).
