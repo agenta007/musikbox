@@ -344,6 +344,9 @@ class OfflineManager(
             .build()
     }
 
+    /** Called with newly queued songs, so their lyrics can be cached for offline use. */
+    var onSongsQueued: ((List<SongEntity>) -> Unit)? = null
+
     /** Queues songs that aren't on disk or queued yet, and re-queues failed ones. */
     suspend fun ensureDownloaded(songs: List<SongEntity>, label: String? = null) = withContext(Dispatchers.Main) {
         awaitReady()
@@ -355,6 +358,7 @@ class OfflineManager(
         if (fresh.isEmpty() && failedOnes.isEmpty()) return@withContext
         fresh.forEach { s -> request(s.id, label(s))?.let(downloadManager::addDownload) }
         failedOnes.forEach { s -> requeue(s.id) }
+        onSongsQueued?.invoke(fresh)
         log.i(
             buildString {
                 append("Queued ${fresh.size} songs")

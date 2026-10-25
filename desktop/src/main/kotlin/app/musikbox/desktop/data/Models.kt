@@ -2,6 +2,7 @@ package app.musikbox.desktop.data
 
 import app.musikbox.data.remote.PlaylistDto
 import app.musikbox.data.remote.SongDto
+import app.musikbox.lyrics.LyricsQuery
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -23,6 +24,8 @@ data class Song(
     val sizeBytes: Long? = null,
     val starred: Boolean = false,
 )
+
+fun Song.lyricsQuery() = LyricsQuery(id, title, artist, album, durationSec)
 
 @Serializable
 data class Playlist(

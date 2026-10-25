@@ -1,5 +1,7 @@
 package app.musikbox.desktop.ui
 
+import androidx.compose.material3.OutlinedTextField
+import app.musikbox.lyrics.LyricsService
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -114,6 +116,36 @@ fun SettingsScreen() {
             item {
                 SettingRow("Streaming quality", "Downloads always keep the original file") {
                     Choice(bitrates, settings.streamBitrate) { v -> c.settings.update { it.copy(streamBitrate = v) } }
+                }
+            }
+
+            item { Section("Lyrics") }
+            item {
+                SettingRow(
+                    "Find missing lyrics online",
+                    "Your server is always asked first. When it has none, ask LRCLIB — this sends the artist, title, album and length.",
+                ) {
+                    Switch(settings.lyricsOnline, { on -> c.settings.update { it.copy(lyricsOnline = on) } })
+                }
+            }
+            item {
+                var url by remember(settings.lyricsServer) { mutableStateOf(settings.lyricsServer) }
+                SettingRow("LRCLIB server", "lrclib.net or your own instance — LRCLIB is open source") {
+                    OutlinedTextField(url, { url = it }, singleLine = true, modifier = Modifier.width(280.dp))
+                    TextButton(
+                        onClick = { c.settings.update { it.copy(lyricsServer = url.trim().ifBlank { LyricsService.DEFAULT_LRCLIB }) } },
+                        enabled = url.trim() != settings.lyricsServer,
+                    ) { Text("Save") }
+                }
+            }
+            item {
+                SettingRow("Clear lyrics cache", "Look every song up again") {
+                    TextButton(onClick = {
+                        c.scope.launch {
+                            c.lyrics.clearCache()
+                            snackbar.showSnackbar("Lyrics cache cleared")
+                        }
+                    }) { Text("Clear") }
                 }
             }
 

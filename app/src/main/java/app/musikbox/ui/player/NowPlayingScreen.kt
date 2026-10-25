@@ -87,6 +87,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.runtime.saveable.rememberSaveable
 import app.musikbox.visualizer.VisualizerStyle
 import androidx.compose.foundation.layout.fillMaxHeight
 
@@ -130,6 +132,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
     var showQueue by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
+    var showLyrics by rememberSaveable { mutableStateOf(false) }
 
     // Pull down anywhere to collapse.
     val density = LocalDensity.current
@@ -202,7 +205,13 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
             val swipeThreshold = with(density) { 80.dp.toPx() }
             var swipeX by remember { mutableFloatStateOf(0f) }
             val animX by animateFloatAsState(swipeX, label = "artSwipe")
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (showLyrics) {
+                LyricsView(
+                    song, position, tint,
+                    onSeek = { player.seekTo(it); position = it },
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                )
+            } else Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 if (vizStyle == VisualizerStyle.Radial) {
                     SpectrumVisualizer(vizStyle, tint, state.isPlaying, Modifier.fillMaxSize())
                 }
@@ -363,6 +372,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { showLyrics = !showLyrics }) {
+                    Icon(
+                        Icons.Rounded.Lyrics, if (showLyrics) "Hide lyrics" else "Lyrics",
+                        tint = if (showLyrics) tint else Color.White.copy(alpha = 0.85f),
+                    )
+                }
                 IconButton(onClick = { showAdd = true }) {
                     Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to playlist", tint = Color.White.copy(alpha = 0.85f))
                 }

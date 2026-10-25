@@ -13,11 +13,14 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import app.musikbox.data.ActivityLog
 import app.musikbox.discover.DiscoverEngine
 import app.musikbox.discover.DiscoverModel
+import app.musikbox.lyrics.FileLyricsCache
+import app.musikbox.lyrics.LyricsService
 import app.musikbox.sync.AndroidSyncHost
 import app.musikbox.sync.SyncEngine
 import kotlinx.coroutines.flow.drop
 import app.musikbox.data.LibraryRepository
 import app.musikbox.data.local.MusikboxDatabase
+import app.musikbox.data.local.lyricsQuery
 import app.musikbox.data.remote.SubsonicClient
 import app.musikbox.data.settings.SettingsStore
 import app.musikbox.playback.MediaResolver
@@ -92,6 +95,12 @@ class AppContainer(context: Context) {
 
     val discover = DiscoverModel(DiscoverEngine(api), scope)
 
+    val lyrics = LyricsService(
+        api, okHttp, FileLyricsCache(File(appContext.filesDir, "lyrics")),
+        lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
+        userAgent = "musikbox/${BuildConfig.VERSION_NAME} (https://src.apostolat.org/neo/musikbox)",
+    )
+
     val syncHost = AndroidSyncHost(appContext, settings, library, player, log)
     val sync = SyncEngine(syncHost, okHttp, scope)
     /** Saved playlists / recents / download list through the server's private `.musikbox` playlist. */
@@ -133,6 +142,7 @@ class AppContainer(context: Context) {
             settings.settings.map { it.wifiOnlyDownloads }.distinctUntilChanged().collect(offline::setWifiOnly)
         }
         if (settings.current.syncEnabled) startSync()
+        offline.onSongsQueued = { songs -> scope.launch { songs.forEach { lyrics.prefetch(it.lyricsQuery()) } } }
         // Any local favourite / play / download-list change is pushed to the other devices.
         scope.launch { library.prefsChanges.drop(1).collect { sync.requestSync(); cloud.requestSync() } }
         // Auto-restart on every launch: re-queue anything in the download list that is missing or failed.

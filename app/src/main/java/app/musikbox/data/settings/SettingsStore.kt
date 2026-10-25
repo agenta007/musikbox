@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.musikbox.lyrics.LyricsService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,9 @@ data class AppSettings(
     val autoDownloadSaved: Boolean = false,
     val autoDownloadLiked: Boolean = false,
     val visualizerStyle: String = "Bars",
+    /** Ask an LRCLIB server when Navidrome has no lyrics for a song. Off: nothing leaves the user's server. */
+    val lyricsOnline: Boolean = false,
+    val lyricsServer: String = LyricsService.DEFAULT_LRCLIB,
     val pureBlack: Boolean = false,
     val cacheSizeMb: Int = 2048,
     val lastSyncAt: Long = 0L,
@@ -57,6 +61,8 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         val autoDownloadSaved = booleanPreferencesKey("auto_download_saved")
         val autoDownloadLiked = booleanPreferencesKey("auto_download_liked")
         val visualizer = stringPreferencesKey("visualizer_style")
+        val lyricsOnline = booleanPreferencesKey("lyrics_online")
+        val lyricsServer = stringPreferencesKey("lyrics_server")
         val pureBlack = booleanPreferencesKey("pure_black")
         val cacheSize = intPreferencesKey("cache_size_mb")
         val lastSync = longPreferencesKey("last_sync")
@@ -96,6 +102,8 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
             autoDownloadSaved = this[Keys.autoDownloadSaved] ?: false,
             autoDownloadLiked = this[Keys.autoDownloadLiked] ?: false,
             visualizerStyle = this[Keys.visualizer] ?: "Bars",
+            lyricsOnline = this[Keys.lyricsOnline] ?: false,
+            lyricsServer = this[Keys.lyricsServer] ?: LyricsService.DEFAULT_LRCLIB,
             pureBlack = this[Keys.pureBlack] ?: false,
             cacheSizeMb = this[Keys.cacheSize] ?: 2048,
             lastSyncAt = this[Keys.lastSync] ?: 0L,
@@ -131,6 +139,8 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setWifiOnlyDownloads(v: Boolean) = context.settingsDataStore.edit { it[Keys.wifiOnly] = v }
     suspend fun setDownloadsPaused(v: Boolean) = context.settingsDataStore.edit { it[Keys.downloadsPaused] = v }
     suspend fun setVisualizerStyle(v: String) = context.settingsDataStore.edit { it[Keys.visualizer] = v }
+    suspend fun setLyricsOnline(v: Boolean) = context.settingsDataStore.edit { it[Keys.lyricsOnline] = v }
+    suspend fun setLyricsServer(v: String) = context.settingsDataStore.edit { it[Keys.lyricsServer] = v.trim() }
     suspend fun setAutoDownloadSaved(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownloadSaved] = v }
     suspend fun setAutoDownloadLiked(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownloadLiked] = v }
     suspend fun setAutoDownloadAll(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownload] = v }

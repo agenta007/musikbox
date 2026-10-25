@@ -5,6 +5,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import app.musikbox.lyrics.LyricsQuery
 import kotlinx.serialization.Serializable
 
 @Entity(tableName = "playlists")
@@ -56,6 +57,8 @@ data class SongEntity(
     val sizeBytes: Long?,
     val starred: Boolean,
 )
+
+fun SongEntity.lyricsQuery() = LyricsQuery(id, title, artist, album, durationSec)
 
 @Entity(
     tableName = "playlist_tracks",

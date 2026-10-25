@@ -61,12 +61,17 @@ class Downloads(
 
     fun file(id: String): File? = if (id in _downloaded.value) fileFor(id).takeIf { it.exists() } else null
 
+    /** Called with newly queued songs, so their lyrics can be cached for offline use. */
+    var onQueued: ((List<Song>) -> Unit)? = null
+
     fun ensure(songs: List<Song>) {
         val skip = _downloaded.value + _pending.value
-        songs.filter { it.id !in skip }.forEach { song ->
+        val fresh = songs.filter { it.id !in skip }
+        fresh.forEach { song ->
             _pending.update { it + song.id }
             queue.trySend(song)
         }
+        if (fresh.isNotEmpty()) onQueued?.invoke(fresh)
     }
 
     private fun download(song: Song) {

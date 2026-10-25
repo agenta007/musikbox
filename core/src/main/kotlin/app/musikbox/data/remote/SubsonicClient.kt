@@ -142,6 +142,14 @@ class SubsonicClient(
 
     suspend fun getStarred2(): Starred2Dto = call("getStarred2").starred2 ?: Starred2Dto()
 
+    /** OpenSubsonic `songLyrics`: embedded tags and sidecar .lrc/.ttml/… files, synced when available. */
+    suspend fun getLyricsBySongId(id: String): List<StructuredLyricsDto> =
+        call("getLyricsBySongId", listOf("id" to id)).lyricsList?.structuredLyrics.orEmpty()
+
+    /** Classic Subsonic lookup by artist and title; plain text, null when the server has none. */
+    suspend fun getLyrics(artist: String, title: String): String? =
+        call("getLyrics", listOf("artist" to artist, "title" to title)).lyrics?.value?.takeIf { it.isNotBlank() }
+
     /** [maxBitRate] 0 → original file, untouched. */
     fun streamUrl(songId: String, maxBitRate: Int): String? {
         val creds = credentials() ?: return null

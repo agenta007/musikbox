@@ -37,6 +37,14 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 - **Discover Mix**: only songs you've **never played**, at most 2 per artist and album, with no artist twice in a row. You can play it, shuffle it, or save it as a playlist.
 - **Sections**: *Sounds like your favourites* · *More from artists you love* · *Unplayed ⟨genre⟩* · *New in your library* · *Rediscover* (loved, but not played in 60+ days) · *Outside your comfort zone*.
 
+### Lyrics
+- **From your own server first.** Navidrome serves lyrics from embedded tags and from files next to each song (`.lrc`, `.elrc`, `.ttml`, `.srt`, `.txt`). musikbox asks for them with the OpenSubsonic `getLyricsBySongId` call, and falls back to classic `getLyrics` on older servers.
+- **Synced lyrics follow the song.** The line being sung is highlighted and kept a third of the way down, and you can tap or click a line to jump there. Plain lyrics just scroll.
+  - Android: the lyrics button in Now Playing.
+  - Desktop: *Up next | Lyrics* in Now Playing.
+- **Optional LRCLIB fallback, off by default.** Turn it on in *Settings → Lyrics* to ask [LRCLIB](https://lrclib.net) for songs your server has no lyrics for. This sends the song's artist, title, album and length. LRCLIB is free and open source, so you can [run your own](https://github.com/tranxuanthang/lrclib) and enter its address. To keep everything on your server instead, fill the gaps once with [LRCGET](https://github.com/tranxuanthang/lrcget), which saves `.lrc` files next to your music.
+- **Cached on the device.** Lyrics, including "none found", are cached, so each song is looked up once. Songs you download get their lyrics fetched too, for offline use. Songs with no lyrics are checked again after a day.
+
 ### Sync between devices
 - **Through your server, automatically.** Saved playlists, recently played and the device key are stored as JSON in one **private, empty playlist named `.musikbox`**, because Subsonic has nowhere else to keep them. Every app merges with it on start, when it comes back to the foreground, every 2 minutes and shortly after any change. musikbox hides this playlist. Navidrome's web UI and other Subsonic apps show it, but only to you.
 - **On the local network or a VPN.** Each app runs a small sync server on TCP **24533** and finds other devices by UDP broadcast on **24534**. You can also add devices by IP. This adds **Continue here**, which takes over another device's queue at its exact position.
@@ -59,7 +67,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 ## Privacy
 
 - **The password is never stored.** musikbox keeps only the Subsonic salted token, `md5(password + salt)`. On the desktop, `settings.json` is created with mode 0600.
-- **No analytics, no trackers, no third-party services.** musikbox only talks to your own server and, if you use LAN sync, to your own devices.
+- **No analytics, no trackers, no third-party services by default.** musikbox only talks to your own server and, if you use LAN sync, to your own devices. The one optional exception is the LRCLIB lyrics fallback, which is off until you enable it and can point at your own instance.
 - Plain HTTP is allowed because many servers live on a LAN. If you type a server address without a scheme, musikbox tries HTTPS first.
 
 ## Install

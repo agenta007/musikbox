@@ -25,6 +25,7 @@ object AppPaths {
     val downloadsDir = File(data, "downloads").apply { mkdirs() }
     val audioCacheDir = File(cache, "audio").apply { mkdirs() }
     val artworkDir = File(cache, "artwork").apply { mkdirs() }
+    val lyricsDir = File(cache, "lyrics")
 
     val version: String = System.getProperty("musikbox.version") ?: "dev"
 }

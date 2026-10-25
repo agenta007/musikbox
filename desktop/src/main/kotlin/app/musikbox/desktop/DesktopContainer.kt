@@ -25,6 +25,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import app.musikbox.desktop.player.TrackPcm
 import app.musikbox.desktop.player.ScreenLock
+import app.musikbox.desktop.data.lyricsQuery
+import app.musikbox.lyrics.FileLyricsCache
+import app.musikbox.lyrics.LyricsService
 
 /** Hand-rolled DI for the desktop app; mirrors the Android AppContainer. */
 class DesktopContainer {
@@ -49,6 +52,11 @@ class DesktopContainer {
     val screenLock = ScreenLock()
 
     val discover = DiscoverModel(DiscoverEngine(api), scope)
+    val lyrics = LyricsService(
+        api, okHttp, FileLyricsCache(AppPaths.lyricsDir),
+        lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
+        userAgent = "musikbox/${AppPaths.version} (https://src.apostolat.org/neo/musikbox)",
+    )
     val syncHost = DesktopSyncHost(settings, library, player)
     val sync = SyncEngine(syncHost, okHttp, scope)
     /** Saved playlists / recents / download list through the server's private `.musikbox` playlist. */
@@ -86,6 +94,7 @@ class DesktopContainer {
         val playerResult = player.start()
         mpris = Mpris(player, library, scope, onRaise, onQuit).also { it.start() }
         screenLock.start()
+        downloads.onQueued = { songs -> scope.launch { songs.forEach { lyrics.prefetch(it.lyricsQuery()) } } }
         if (settings.current.syncEnabled) startSync()
         // Any local favourite / play / download-list change is pushed to the other devices.
         scope.launch { library.prefsFlow.drop(1).collect { sync.requestSync(); cloud.requestSync() } }

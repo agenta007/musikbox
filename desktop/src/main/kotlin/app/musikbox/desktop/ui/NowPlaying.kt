@@ -156,9 +156,14 @@ fun NowPlayingScreen() {
                 }
                 Spacer(Modifier.height(24.dp))
                 val upNext = state.queue.drop(state.pos + 1)
-                Text("Up next", style = MaterialTheme.typography.titleLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    PanelTab("Up next", !settings.showLyrics) { c.settings.update { it.copy(showLyrics = false) } }
+                    PanelTab("Lyrics", settings.showLyrics) { c.settings.update { it.copy(showLyrics = true) } }
+                }
                 Spacer(Modifier.height(8.dp))
-                if (upNext.isEmpty()) {
+                if (settings.showLyrics) {
+                    LyricsPanel(song, tint, Modifier.weight(1f).fillMaxWidth())
+                } else if (upNext.isEmpty()) {
                     Text("End of queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.2f)).padding(6.dp)) {
@@ -176,6 +181,16 @@ fun NowPlayingScreen() {
         }
     }
     if (addTarget) AddToPlaylistDialog(listOf(song)) { addTarget = false }
+}
+
+@Composable
+private fun PanelTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        style = MaterialTheme.typography.titleLarge,
+        color = if (selected) Color.White else Color.White.copy(alpha = 0.45f),
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick).pointerHoverIcon(PointerIcon.Hand),
+    )
 }
 
 @Composable

@@ -3,6 +3,7 @@ package app.musikbox.desktop.data
 import app.musikbox.data.settings.Credentials
 import app.musikbox.desktop.AppPaths
 import app.musikbox.desktop.JsonFile
+import app.musikbox.lyrics.LyricsService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,11 @@ data class DesktopSettings(
     val autoDownloadSaved: Boolean = false,
     val autoDownloadLiked: Boolean = false,
     val visualizerStyle: String = "Bars",
+    /** Ask an LRCLIB server when Navidrome has no lyrics for a song. Off: nothing leaves the user's server. */
+    val lyricsOnline: Boolean = false,
+    val lyricsServer: String = LyricsService.DEFAULT_LRCLIB,
+    /** Now Playing shows lyrics instead of the queue. */
+    val showLyrics: Boolean = false,
     val pureBlack: Boolean = false,
     val cacheSizeMb: Int = 2048,
     val lastSyncAt: Long = 0L,

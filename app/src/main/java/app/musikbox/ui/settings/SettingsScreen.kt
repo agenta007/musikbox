@@ -30,6 +30,10 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material3.OutlinedTextField
+import app.musikbox.lyrics.LyricsService
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +92,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
     var pickBitrate by remember { mutableStateOf(false) }
     var pickCache by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
+    var editLyricsServer by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -179,6 +184,26 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
                 ) { pickBitrate = true }
             }
 
+            item { Section("Lyrics") }
+            item {
+                Toggle(
+                    Icons.Rounded.Lyrics, "Find missing lyrics online",
+                    "Your server is always asked first. When it has none, ask LRCLIB — this sends the artist, title, album and length.",
+                    settings.lyricsOnline,
+                ) { on -> scope.launch { container.settings.setLyricsOnline(on) } }
+            }
+            item {
+                Setting(Icons.Rounded.Dns, "LRCLIB server", "${settings.lyricsServer} · lrclib.net or your own instance") { editLyricsServer = true }
+            }
+            item {
+                Setting(Icons.Rounded.DeleteSweep, "Clear lyrics cache", "Look every song up again") {
+                    scope.launch {
+                        container.lyrics.clearCache()
+                        snackbar.showSnackbar("Lyrics cache cleared")
+                    }
+                }
+            }
+
             item { Section("Offline") }
             item { DownloadRulesCard(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
             item {
@@ -243,6 +268,34 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
             pickCache = false
             scope.launch { container.settings.setCacheSizeMb(it) }
         }
+    }
+    if (editLyricsServer) {
+        var url by remember { mutableStateOf(settings.lyricsServer) }
+        AlertDialog(
+            onDismissRequest = { editLyricsServer = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = { Text("LRCLIB server") },
+            text = {
+                Column {
+                    OutlinedTextField(url, { url = it }, singleLine = true, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "LRCLIB is free and open source; you can run your own copy and enter its address here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    editLyricsServer = false
+                    scope.launch { container.settings.setLyricsServer(url.ifBlank { LyricsService.DEFAULT_LRCLIB }) }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { url = LyricsService.DEFAULT_LRCLIB }) { Text("Reset") }
+            },
+        )
     }
     if (confirmSignOut) {
         ConfirmDialog(

@@ -50,6 +50,8 @@ data class SubsonicResponse(
     val similarSongs2: SongListDto? = null,
     val topSongs: SongListDto? = null,
     val starred2: Starred2Dto? = null,
+    val lyricsList: LyricsListDto? = null,
+    val lyrics: LegacyLyricsDto? = null,
 )
 
 @Serializable
@@ -97,6 +99,27 @@ data class SongDto(
     val playCount: Long = 0,
     val played: String? = null,
 )
+
+/** OpenSubsonic `songLyrics`: one entry per language/kind, synced or plain. */
+@Serializable
+data class LyricsListDto(val structuredLyrics: List<StructuredLyricsDto> = emptyList())
+
+@Serializable
+data class StructuredLyricsDto(
+    val kind: String? = null,
+    val lang: String? = null,
+    val synced: Boolean = false,
+    /** Milliseconds; positive shows every line that much sooner. */
+    val offset: Long = 0,
+    val line: List<LyricLineDto> = emptyList(),
+)
+
+@Serializable
+data class LyricLineDto(val start: Long? = null, val value: String = "")
+
+/** Classic Subsonic `getLyrics`: plain text only. */
+@Serializable
+data class LegacyLyricsDto(val artist: String? = null, val title: String? = null, val value: String? = null)
 
 @Serializable
 data class SearchResult3Dto(val song: List<SongDto> = emptyList())
