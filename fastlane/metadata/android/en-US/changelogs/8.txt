@@ -1,0 +1,2 @@
+• F-Droid and direct downloads are now built reproducibly and signed with the same developer key, so you can switch between them without reinstalling.
+• Lyrics: synced lyrics from your Navidrome server follow the song; tap a line to jump there. Optional LRCLIB fallback, off by default.

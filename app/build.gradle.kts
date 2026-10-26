@@ -45,6 +45,9 @@ android {
             // Release key from keystore.properties (created by deploy.sh). Without it the APK is
             // left unsigned, which is what F-Droid builds and signs itself.
             signingConfigs.findByName("release")?.let { signingConfig = it }
+            // Keeps the APK byte-identical to F-Droid's rebuild (reproducible builds): AGP would
+            // otherwise embed the git revision, or "no git found", depending on where it's built.
+            vcsInfo.include = false
         }
     }
 
