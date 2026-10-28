@@ -1,0 +1,1 @@
+• Builds are now fully reproducible, so F-Droid can ship the same signed APK as the direct download.

@@ -81,6 +81,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// Baseline profiles (assets/dexopt/baseline.prof*) come out differently on F-Droid's build server,
+// which breaks the reproducible-build comparison; leave them out so the APKs match byte for byte.
+tasks.whenTaskAdded {
+    if (name.contains("ArtProfile")) enabled = false
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
