@@ -221,6 +221,8 @@ If `ping` works but the page doesn't load, the home server's firewall is probabl
 
 Navidrome only plays files you have on disk. This tutorial turns your Spotify playlists into music files and Navidrome playlists. You export the playlists with Exportify, and the Python scripts in [`tools/`](tools/) download each song and write the playlists. Read the scripts before you run them: each one starts with a docstring that explains what it does, and `--help` lists every option. Only download music you're allowed to keep where you live.
 
+In short: export the playlists as CSV files, put them in `tools/csv/`, and run `python3 archive.py` in `tools/` to download the music.
+
 ### 1. Export your playlists with Exportify
 
 [Exportify](https://github.com/watsonbox/exportify) saves Spotify playlists as CSV files. You can use it in either of two ways:
@@ -239,6 +241,7 @@ Then:
 1. Click **Get Started** and log in with your Spotify account.
 2. Click **Export** next to one playlist, or **Export All** to get a zip with every playlist.
 3. Put the `.csv` files, unzipped, into `tools/csv/`. Each file's name becomes the playlist's name, so rename the files if you want different names.
+4. Install what the scripts need (step 2), then run `archive.py` to download the music (step 3).
 
 ### 2. Install what the scripts need
 
@@ -251,6 +254,8 @@ curl -fsSL https://deno.land/install.sh | sh
 yt-dlp needs a JavaScript runtime (deno, or node) to solve YouTube's signature check. Without one, every track fails with "Requested format is not available".
 
 ### 3. Download the songs: `archive.py`
+
+Once the CSV files are in `tools/csv/`, run `archive.py` from the `tools/` folder. It downloads every song in every playlist:
 
 ```bash
 cd tools
