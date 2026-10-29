@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>musikbox: a playlist-first music player for Navidrome and Subsonic</title>
+<meta name="description" content="musikbox is a free, open-source music player for your own Navidrome or Subsonic server, built around your playlists. Offline downloads, synced lyrics, Discover and a visualizer, for Android and the Linux desktop.">
+<link rel="canonical" href="https://musikbox.stati-kosev.com/">
+<meta name="theme-color" content="#120E19">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="musikbox">
+<meta property="og:title" content="musikbox: your playlists, your server, your music">
+<meta property="og:description" content="A free, open-source music player for your own Navidrome or Subsonic server, built around your playlists. Android and Linux desktop.">
+<meta property="og:url" content="https://musikbox.stati-kosev.com/">
+<meta property="og:image" content="https://musikbox.stati-kosev.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="musikbox on a phone, playing music from a Navidrome server">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "musikbox",
+  "description": "A playlist-first music player for Navidrome and Subsonic servers, with offline downloads, synced lyrics, Discover and a visualizer.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 12+, Linux",
+  "softwareVersion": "1.0.8",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "url": "https://musikbox.stati-kosev.com/",
+  "downloadUrl": "https://github.com/agenta007/musikbox/releases/latest",
+  "codeRepository": "https://github.com/agenta007/musikbox",
+  "screenshot": "https://musikbox.stati-kosev.com/img/screen-1.webp",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+}
+</script>
+
+<style>
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+
+:root {
+  --night: #120E19;
+  --plum: #221A31;
+  --plum-line: #3A2E4D;
+  --ember: #FF6A3D;
+  --peach: #FFB199;
+  --paper: #F7F0EC;
+  --lilac: #A99FB8;
+
+  --step--1: 0.875rem;
+  --step-0: 1.125rem;
+  --step-1: 1.5rem;
+  --step-2: 2.25rem;
+  --step-hero: clamp(2rem, 11.4cqi, 6rem);
+
+  --wide: 125%;
+  --page: 70rem;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+  --radius-phone: 2.6rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--paper);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--step-0);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--peach); text-underline-offset: 0.2em; }
+a:hover { color: var(--paper); }
+
+:focus-visible {
+  outline: 2px solid var(--peach);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.skip {
+  position: absolute;
+  left: var(--gutter);
+  top: -4rem;
+  background: var(--paper);
+  color: var(--night);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  z-index: 10;
+}
+.skip:focus { top: 1rem; }
+
+.wrap {
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+h1, h2, h3 { margin: 0; font-stretch: var(--wide); line-height: 1.05; }
+h2 { font-size: var(--step-2); font-weight: 850; letter-spacing: -0.02em; }
+h3 { font-size: var(--step-0); font-weight: 750; letter-spacing: -0.005em; }
+p { margin: 0; }
+
+/* ---------- Header ---------- */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.25rem;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--paper);
+  text-decoration: none;
+  font-stretch: var(--wide);
+  font-weight: 850;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+.brand img { width: 2.25rem; height: 2.25rem; }
+.brand span::after { content: "."; color: var(--ember); }
+.top nav { display: flex; align-items: center; gap: 1.5rem; font-size: var(--step--1); }
+.top nav a { color: var(--lilac); text-decoration: none; font-weight: 600; }
+.top nav a:hover { color: var(--paper); }
+.top nav .nav-cta {
+  color: var(--night);
+  background: var(--paper);
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+}
+.top nav .nav-cta:hover { background: var(--peach); color: var(--night); }
+@media (max-width: 40rem) { .top nav .hide-sm { display: none; } }
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+  padding-block: clamp(2rem, 6vw, 5rem) clamp(3rem, 8vw, 6rem);
+}
+
+.hero-text { min-width: 0; container-type: inline-size; }
+.bars {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.16em;
+  font-size: var(--step-hero);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+}
+.bars .bar {
+  display: inline-block;
+  color: var(--night);
+  padding: 0.1em 0.42em 0.14em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.bars .b1 { background: var(--ember); }
+.bars .b2 { background: var(--peach); }
+.bars .b3 { background: var(--paper); }
+.bars .last { display: flex; align-items: center; gap: 0.28em; }
+.play {
+  display: inline-grid;
+  place-items: center;
+  width: 0.9em;
+  height: 0.9em;
+  color: var(--ember);
+  text-decoration: none;
+}
+.play svg { width: 100%; height: 100%; fill: currentColor; }
+.play:hover { color: var(--peach); }
+
+.pitch {
+  max-width: 34rem;
+  margin-top: clamp(1.5rem, 3vw, 2.25rem);
+  color: var(--lilac);
+  font-size: clamp(1.125rem, 1.6vw, 1.3rem);
+}
+.pitch strong { color: var(--paper); font-weight: 600; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  line-height: 1.2;
+}
+.btn svg { width: 1.15rem; height: 1.15rem; fill: currentColor; flex: none; }
+.btn-primary { background: var(--ember); color: var(--night); }
+.btn-primary:hover { background: var(--peach); color: var(--night); }
+.btn-quiet { color: var(--paper); box-shadow: inset 0 0 0 1.5px var(--plum-line); }
+.btn-quiet:hover { color: var(--paper); box-shadow: inset 0 0 0 1.5px var(--lilac); }
+
+.fineprint { margin-top: 1.25rem; font-size: var(--step--1); color: var(--lilac); }
+
+.phone {
+  width: clamp(15rem, 24vw, 19rem);
+  aspect-ratio: 9 / 16;
+  border-radius: var(--radius-phone);
+  border: 0.55rem solid #2A2139;
+  background: #2A2139;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 2.5rem 6rem -2.5rem rgba(255, 106, 61, 0.45);
+}
+.phone img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--radius-phone) - 0.55rem);
+}
+
+@media (max-width: 52rem) {
+  .hero { grid-template-columns: 1fr; }
+  .hero .phone { display: none; }
+}
+
+/* The one orchestrated moment: the three playlist bars draw in like the logo. */
+@media (prefers-reduced-motion: no-preference) {
+  .bars .bar { animation: draw 0.7s cubic-bezier(0.2, 0.7, 0.1, 1) both; }
+  .bars .b2 { animation-delay: 0.12s; }
+  .bars .b3 { animation-delay: 0.24s; }
+  .bars .play { animation: pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 0.62s both; }
+}
+@keyframes draw {
+  from { clip-path: inset(0 100% 0 0 round 999px); }
+  to   { clip-path: inset(0 0 0 0 round 999px); }
+}
+@keyframes pop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* ---------- Sections ---------- */
+
+.band { padding-block: clamp(3.5rem, 8vw, 6.5rem); border-top: 1px solid var(--plum-line); }
+.lede { margin-top: 1rem; max-width: 38rem; color: var(--lilac); }
+
+/* What you need: a real sequence, so it's numbered like a tracklist. */
+.steps { list-style: none; margin: 2.5rem 0 0; padding: 0; counter-reset: step; }
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 14rem) minmax(0, 1fr);
+  gap: 0.5rem 1.5rem;
+  align-items: baseline;
+  padding-block: 1.25rem;
+  border-bottom: 1px solid var(--plum-line);
+}
+.steps li::before {
+  content: counter(step);
+  font-stretch: var(--wide);
+  font-weight: 850;
+  font-size: var(--step-1);
+  color: var(--ember);
+  font-variant-numeric: tabular-nums;
+}
+.steps p { color: var(--lilac); max-width: 40rem; }
+@media (max-width: 40rem) {
+  .steps li { grid-template-columns: 2.25rem minmax(0, 1fr); }
+  .steps p { grid-column: 2; }
+}
+
+/* Features: a playlist you can "play"; the active row shows on the phone. */
+.features {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: start;
+  margin-top: 2.5rem;
+}
+.tracks { list-style: none; margin: 0; padding: 0; }
+.track {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1rem 1rem 0.75rem;
+  border: 0;
+  border-radius: 1.25rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.track:hover { background: rgba(34, 26, 49, 0.6); }
+.track[aria-pressed="true"] { background: var(--plum); }
+.track .t-title {
+  display: block;
+  color: var(--paper);
+  font-stretch: var(--wide);
+  font-weight: 750;
+  font-size: var(--step-0);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+}
+.track .t-desc { display: block; color: var(--lilac); margin-top: 0.3rem; font-size: 1rem; }
+.track .shot { display: none; }
+
+.eq { display: flex; align-items: flex-end; gap: 3px; height: 1.1rem; margin-top: 0.15rem; }
+.eq i { width: 4px; border-radius: 2px; background: var(--plum-line); height: 40%; }
+.eq i:nth-child(2) { height: 75%; }
+.eq i:nth-child(3) { height: 55%; }
+.track[aria-pressed="true"] .eq i { background: var(--ember); }
+@media (prefers-reduced-motion: no-preference) {
+  .track[aria-pressed="true"] .eq i { animation: eq 0.9s ease-in-out infinite alternate; }
+  .track[aria-pressed="true"] .eq i:nth-child(2) { animation-duration: 0.7s; }
+  .track[aria-pressed="true"] .eq i:nth-child(3) { animation-duration: 1.1s; }
+}
+@keyframes eq { from { height: 25%; } to { height: 100%; } }
+
+.features .phone { position: sticky; top: 2rem; }
+.features .phone img { transition: opacity 0.25s ease; }
+.features .phone img.out { opacity: 0; }
+
+.also { margin-top: 2rem; color: var(--lilac); max-width: 40rem; font-size: 1rem; }
+
+@media (max-width: 52rem) {
+  .features { grid-template-columns: 1fr; }
+  .features > .phone { display: none; }
+  .track { cursor: default; }
+  .track:hover, .track[aria-pressed="true"] { background: transparent; }
+  .track .eq { display: none; }
+  .track { grid-template-columns: 1fr; padding-inline: 0; }
+  .track .shot {
+    display: block;
+    width: min(16rem, 70%);
+    margin-top: 1rem;
+    border-radius: 1.5rem;
+    border: 0.4rem solid #2A2139;
+  }
+}
+
+/* Download */
+.downloads { list-style: none; margin: 2.5rem 0 0; padding: 0; }
+.downloads li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 2rem;
+  align-items: center;
+  padding-block: 1.5rem;
+  border-bottom: 1px solid var(--plum-line);
+}
+.downloads h3 { font-size: var(--step-1); }
+.downloads p { color: var(--lilac); margin-top: 0.35rem; font-size: 1rem; max-width: 36rem; }
+.soon { color: var(--peach); font-weight: 600; font-size: 1rem; }
+@media (max-width: 40rem) { .downloads li { grid-template-columns: 1fr; } }
+
+/* Footer */
+.foot { border-top: 1px solid var(--plum-line); }
+.foot-in {
+  padding-block: 2.5rem 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  color: var(--lilac);
+  font-size: var(--step--1);
+}
+.foot-in nav { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.foot-in a { color: var(--lilac); }
+.foot-in a:hover { color: var(--paper); }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="wrap top">
+  <a class="brand" href="./" aria-label="musikbox home">
+    <img src="icon.svg" alt="" width="36" height="36"><span>musikbox</span>
+  </a>
+  <nav aria-label="Main">
+    <a class="hide-sm" href="#features">Features</a>
+    <a class="hide-sm" href="#need">What you need</a>
+    <a class="hide-sm" href="https://github.com/agenta007/musikbox">Source</a>
+    <a class="nav-cta" href="#download">Download</a>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="wrap hero" aria-labelledby="hero-title">
+    <div class="hero-text">
+      <h1 id="hero-title" class="bars">
+        <span class="bar b1">Your playlists,</span>
+        <span class="bar b2">your server,</span>
+        <span class="last">
+          <span class="bar b3">your music.</span>
+          <a class="play" href="#download" aria-label="Download musikbox">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.9c0-1.5 1.6-2.4 2.9-1.7l13.4 8.1c1.2.8 1.2 2.6 0 3.4L7.9 21.8c-1.3.7-2.9-.2-2.9-1.7z"/></svg>
+          </a>
+        </span>
+      </h1>
+      <p class="pitch">
+        <strong>musikbox</strong> is a music player for your own Navidrome or Subsonic server, built around
+        your playlists. They open instantly, play offline, and stay in sync between your phone and your Linux desktop.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/agenta007/musikbox/releases/latest">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+          Download for Android
+        </a>
+        <a class="btn btn-quiet" href="#linux">Get the Linux app</a>
+      </div>
+      <p class="fineprint">Free and open source under the GPL-3.0. Version 1.0.8, Android 12 and newer.</p>
+    </div>
+    <div class="phone">
+      <img src="img/screen-3.webp" alt="musikbox playing a song, with a radial spectrum visualizer around the cover" width="720" height="1280">
+    </div>
+  </section>
+
+  <section class="band" id="need" aria-labelledby="need-title">
+    <div class="wrap">
+      <h2 id="need-title">What you need</h2>
+      <p class="lede">musikbox brings no music and no streaming service. It plays what you own, from a server you run.</p>
+      <ol class="steps">
+        <li>
+          <h3>Your music files</h3>
+          <p>MP3, FLAC, Opus, AAC and the rest, on a hard disk or SSD.</p>
+        </li>
+        <li>
+          <h3>A Navidrome server</h3>
+          <p>
+            <a href="https://www.navidrome.org/docs/installation/">Navidrome</a> runs on an always-on computer
+            that has your music: a home server, a NAS, a Raspberry Pi or a rented server. Other Subsonic-compatible servers work too.
+          </p>
+        </li>
+        <li>
+          <h3>A way to reach it</h3>
+          <p>
+            At home, the server's local address is enough. Away from home, forward a port on your router to Navidrome,
+            or better, put it behind a reverse proxy with HTTPS. A VPN into your home network works too.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <h2 id="features-title">Built around your playlists</h2>
+      <p class="lede">Most players start from albums and artists. musikbox starts from the playlists you already made, and keeps them close.</p>
+      <div class="features">
+        <ul class="tracks">
+          <li>
+            <button class="track" type="button" aria-pressed="true" data-shot="img/screen-1.webp" data-alt="The musikbox home screen with liked songs, recently played and saved playlists">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">Your playlists open first</span>
+                <span class="t-desc">Recently played, liked songs, saved playlists and everything else, cached on your phone so they open instantly.</span>
+                <img class="shot" src="img/screen-1.webp" alt="The musikbox home screen" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="track" type="button" aria-pressed="false" data-shot="img/screen-2.webp" data-alt="A playlist downloaded for offline listening">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">Take them offline</span>
+                <span class="t-desc">Download a playlist in one tap, or let musikbox download your liked songs and saved playlists as they change.</span>
+                <img class="shot" src="img/screen-2.webp" alt="A downloaded playlist" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="track" type="button" aria-pressed="false" data-shot="img/screen-3.webp" data-alt="Now playing with a radial spectrum visualizer">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">See the music</span>
+                <span class="t-desc">A spectrum visualizer in bars, mirror or radial style, coloured from the cover art. No microphone permission needed.</span>
+                <img class="shot" src="img/screen-3.webp" alt="The visualizer" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="track" type="button" aria-pressed="false" data-shot="img/screen-4.webp" data-alt="Synced lyrics highlighting the line being sung">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">Lyrics that follow the song</span>
+                <span class="t-desc">Synced lyrics from your own server light up line by line. Tap a line to jump there.</span>
+                <img class="shot" src="img/screen-4.webp" alt="Synced lyrics" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="track" type="button" aria-pressed="false" data-shot="img/screen-5.webp" data-alt="Discover, with a mix of songs never played before">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">Discover what you already own</span>
+                <span class="t-desc">A mix of songs from your library you have never played, picked from what you play and star.</span>
+                <img class="shot" src="img/screen-5.webp" alt="Discover" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="track" type="button" aria-pressed="false" data-shot="img/screen-6.webp" data-alt="The download manager with automatic download rules">
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>
+                <span class="t-title">Downloads that look after themselves</span>
+                <span class="t-desc">See every song's status. Failed downloads retry on their own, and a whole list re-downloads or clears in one tap.</span>
+                <img class="shot" src="img/screen-6.webp" alt="The download manager" loading="lazy" width="720" height="1280">
+              </span>
+            </button>
+          </li>
+        </ul>
+        <div class="phone" aria-live="polite">
+          <img id="feature-shot" src="img/screen-1.webp" alt="The musikbox home screen with liked songs, recently played and saved playlists" width="720" height="1280">
+        </div>
+      </div>
+      <p class="also">
+        Also: saved playlists and history sync between your devices through your server, Continue here picks up another
+        device's queue where it left off, plus a sleep timer, scrobbling, and media keys on the Linux desktop.
+      </p>
+    </div>
+  </section>
+
+  <section class="band" id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <h2 id="download-title">Download</h2>
+      <ul class="downloads">
+        <li>
+          <div>
+            <h3>Android</h3>
+            <p>Android 12 and newer. Every release is signed with the same key, so updates install over the top.</p>
+          </div>
+          <a class="btn btn-primary" href="https://github.com/agenta007/musikbox/releases/latest">Get the latest APK</a>
+        </li>
+        <li>
+          <div>
+            <h3>F-Droid</h3>
+            <p>musikbox is joining the F-Droid catalogue. Until then, download the APK above; F-Droid's version will be the same signed app.</p>
+          </div>
+          <span class="soon">Early 2027</span>
+        </li>
+        <li id="linux">
+          <div>
+            <h3>Linux desktop</h3>
+            <p>The same app for your desktop, with media keys and Plasma or GNOME controls. Needs <a href="https://mpv.io/">mpv</a>; one script builds and installs it.</p>
+          </div>
+          <a class="btn btn-quiet" href="https://github.com/agenta007/musikbox#building">Install instructions</a>
+        </li>
+        <li>
+          <div>
+            <h3>Source code</h3>
+            <p>Free software under the GPL-3.0. Issues and contributions are welcome on GitHub.</p>
+          </div>
+          <a class="btn btn-quiet" href="https://github.com/agenta007/musikbox">View on GitHub</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+ <div class="wrap foot-in">
+  <p>musikbox is free software, licensed under the GPL-3.0. It is not affiliated with Navidrome.</p>
+  <nav aria-label="Footer">
+    <a href="https://github.com/agenta007/musikbox">GitHub</a>
+    <a href="https://github.com/agenta007/musikbox/issues">Report a problem</a>
+    <a href="https://www.navidrome.org/">Navidrome</a>
+  </nav>
+ </div>
+</footer>
+
+<script>
+  // Feature list: the pressed row is "now playing" and its screenshot shows on the phone.
+  (function () {
+    var tracks = document.querySelectorAll(".track");
+    var shot = document.getElementById("feature-shot");
+    if (!shot) return;
+    tracks.forEach(function (t) {
+      new Image().src = t.dataset.shot;
+      t.addEventListener("click", function () {
+        if (t.getAttribute("aria-pressed") === "true") return;
+        tracks.forEach(function (o) { o.setAttribute("aria-pressed", String(o === t)); });
+        shot.classList.add("out");
+        setTimeout(function () {
+          shot.src = t.dataset.shot;
+          shot.alt = t.dataset.alt;
+          shot.classList.remove("out");
+        }, 200);
+      });
+    });
+  })();
+</script>
+</body>
+</html>
