@@ -55,7 +55,7 @@ class DesktopContainer {
     val lyrics = LyricsService(
         api, okHttp, FileLyricsCache(AppPaths.lyricsDir),
         lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
-        userAgent = "musikbox/${AppPaths.version} (https://src.apostolat.org/neo/musikbox)",
+        userAgent = "musikbox/${AppPaths.version} (https://github.com/agenta007/musikbox)",
     )
     val syncHost = DesktopSyncHost(settings, library, player)
     val sync = SyncEngine(syncHost, okHttp, scope)

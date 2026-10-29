@@ -98,7 +98,7 @@ class AppContainer(context: Context) {
     val lyrics = LyricsService(
         api, okHttp, FileLyricsCache(File(appContext.filesDir, "lyrics")),
         lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
-        userAgent = "musikbox/${BuildConfig.VERSION_NAME} (https://src.apostolat.org/neo/musikbox)",
+        userAgent = "musikbox/${BuildConfig.VERSION_NAME} (https://github.com/agenta007/musikbox)",
     )
 
     val syncHost = AndroidSyncHost(appContext, settings, library, player, log)

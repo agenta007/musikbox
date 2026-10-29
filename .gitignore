@@ -18,3 +18,4 @@ claude-resume.sh
 deploy.sh
 fdroid.doc
 docs
+__pycache__/

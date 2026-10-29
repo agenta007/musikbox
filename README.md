@@ -81,7 +81,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 
 ## Install
 
-- **Android**: an F-Droid release is on its way; until then, build an APK as shown below.
+- **Android**: download the APK from [GitHub Releases](https://github.com/agenta007/musikbox/releases/latest). An F-Droid release is on its way.
 - **Linux desktop**: run `desktop/install.sh` (see below). It needs `mpv` (`sudo pacman -S mpv` or `sudo apt install mpv`).
 
 ## Guide: host your own Navidrome server
