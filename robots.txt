@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://musikbox.stati-kosev.com/sitemap.xml
+Sitemap: https://agenta007.github.io/musikbox/sitemap.xml
