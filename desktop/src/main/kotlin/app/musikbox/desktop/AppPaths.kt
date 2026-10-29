@@ -9,14 +9,21 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
 
-/** XDG base directories: settings in ~/.config, library + downloads in ~/.local/share, audio/art in ~/.cache. */
+/**
+ * Linux: XDG base directories — settings in ~/.config, library + downloads in ~/.local/share, audio/art in ~/.cache.
+ * Windows: settings, library and downloads in %APPDATA%\musikbox, audio/art in %LOCALAPPDATA%\musikbox\cache.
+ */
 object AppPaths {
+    val isWindows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+
     private fun base(env: String, fallback: String) =
         File(System.getenv(env)?.takeIf { it.isNotBlank() } ?: (System.getProperty("user.home") + fallback))
 
-    val config = File(base("XDG_CONFIG_HOME", "/.config"), "musikbox").apply { mkdirs() }
-    val data = File(base("XDG_DATA_HOME", "/.local/share"), "musikbox").apply { mkdirs() }
-    val cache = File(base("XDG_CACHE_HOME", "/.cache"), "musikbox").apply { mkdirs() }
+    val config = (if (isWindows) File(base("APPDATA", "\\AppData\\Roaming"), "musikbox")
+        else File(base("XDG_CONFIG_HOME", "/.config"), "musikbox")).apply { mkdirs() }
+    val data = (if (isWindows) config else File(base("XDG_DATA_HOME", "/.local/share"), "musikbox")).apply { mkdirs() }
+    val cache = (if (isWindows) File(base("LOCALAPPDATA", "\\AppData\\Local"), "musikbox\\cache")
+        else File(base("XDG_CACHE_HOME", "/.cache"), "musikbox")).apply { mkdirs() }
     val runtime: File = System.getenv("XDG_RUNTIME_DIR")?.let(::File)?.takeIf { it.isDirectory } ?: cache
 
     val settingsFile = File(config, "settings.json")

@@ -92,8 +92,11 @@ class DesktopContainer {
     /** Call on the UI thread once the window exists. */
     fun start(onRaise: () -> Unit, onQuit: () -> Unit): Result<Unit> {
         val playerResult = player.start()
-        mpris = Mpris(player, library, scope, onRaise, onQuit).also { it.start() }
-        screenLock.start()
+        // Both talk to the D-Bus session bus, which only Linux desktops have.
+        if (!AppPaths.isWindows) {
+            mpris = Mpris(player, library, scope, onRaise, onQuit).also { it.start() }
+            screenLock.start()
+        }
         downloads.onQueued = { songs -> scope.launch { songs.forEach { lyrics.prefetch(it.lyricsQuery()) } } }
         if (settings.current.syncEnabled) startSync()
         // Any local favourite / play / download-list change is pushed to the other devices.

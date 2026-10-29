@@ -50,7 +50,8 @@ compose.desktop {
         jvmArgs += listOf("-Dmusikbox.version=$appVersion", "-Xmx768m")
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm)
+            // Each format is built on its own OS: deb/rpm on Linux, msi on Windows.
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi)
             packageName = "musikbox"
             packageVersion = appVersion
             description = "Playlist-first music player for Navidrome and Subsonic"
@@ -68,6 +69,14 @@ compose.desktop {
                 menuGroup = "AudioVideo;Audio;Player"
                 appCategory = "sound"
                 debMaintainer = "musikbox@localhost"
+            }
+            windows {
+                iconFile.set(project.file("packaging/musikbox.ico"))
+                menuGroup = "musikbox"
+                shortcut = true
+                perUserInstall = true // installs without admin rights, into %LOCALAPPDATA%
+                // Fixed forever: it is how Windows recognises a newer MSI as an upgrade of this app.
+                upgradeUuid = "fe1b97e2-2a3b-4cc2-97c6-bbc760acecb6"
             }
         }
         buildTypes.release.proguard {

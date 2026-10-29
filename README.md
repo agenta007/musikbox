@@ -81,17 +81,95 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 
 ## Install
 
-- **Android**: download the APK from [GitHub Releases](https://github.com/agenta007/musikbox/releases/latest). An F-Droid release is on its way.
-- **Linux desktop**: run `desktop/install.sh` (see below). It needs `mpv` (`sudo pacman -S mpv` or `sudo apt install mpv`).
+### Android
+
+Download the APK from [GitHub Releases](https://github.com/agenta007/musikbox/releases/latest) and open it on your phone. Android asks once to allow installs from your browser or file manager. An F-Droid release is on its way.
+
+### Linux
+
+The desktop app is built from source on your machine and installed for your user only, so it needs no root. It works on any x86-64 distribution and desktop, including KDE Plasma and GNOME. It needs:
+- **mpv**, which plays the audio;
+- **a JDK, version 17 to 21**, only for building. The installed app brings its own Java runtime;
+- **git**, to download the source.
+
+1. **Install the tools.**
+   ```bash
+   sudo pacman -S mpv jdk21-openjdk git                  # Arch, Manjaro, CachyOS
+   sudo apt install mpv openjdk-21-jdk git               # Debian 13, Ubuntu 24.04 and newer (Debian 12: openjdk-17-jdk)
+   sudo dnf install mpv java-21-openjdk-devel git        # Fedora (mpv comes from RPM Fusion)
+   ```
+2. **Download the source and install.**
+   ```bash
+   git clone https://github.com/agenta007/musikbox.git
+   cd musikbox
+   desktop/install.sh
+   ```
+   The first build downloads Gradle and the libraries, so it takes a few minutes. If your default Java is newer than 21, point the build at JDK 21: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk desktop/install.sh`.
+3. **Start musikbox** from your app menu, or run `musikbox` in a terminal.
+
+The app is installed in `~/.local/opt/musikbox`, with a menu entry, an icon and the `musikbox` command in `~/.local/bin`.
+- **To update:** run `git pull`, then `desktop/install.sh` again.
+- **To uninstall:** run `desktop/install.sh --uninstall`. Your settings, library and downloads are kept.
+
+To build a `.deb` or `.rpm` package instead, see [Building](#building).
+
+### NixOS
+
+NixOS keeps libraries out of the usual Linux paths, so the repo includes a `shell.nix` with everything the build and the app need: JDK 21, mpv, and the graphics and font libraries.
+
+```bash
+nix-shell -p git --run 'git clone https://github.com/agenta007/musikbox.git'
+cd musikbox
+nix-shell --run desktop/install.sh
+```
+
+`install.sh` notices it's on NixOS. It writes a small launcher that sets the library path, and pins the JDK, mpv and libraries from `shell.nix` as garbage-collector roots, so `nix-collect-garbage` doesn't remove them. musikbox then shows up in the KDE or GNOME app menu like any other app. On Plasma's Wayland session it runs through XWayland. Media keys and the Plasma media controls work through MPRIS.
+
+- **To update:** run `git pull`, then `nix-shell --run desktop/install.sh` again.
+- **To uninstall:** run `desktop/install.sh --uninstall`. The pinned packages are released at the next garbage collection.
+- **To try it without installing:** run `nix-shell --run './gradlew :desktop:run'`.
+
+### Windows (experimental)
+
+On Windows 10 and 11 (x64), you build an installer (`.msi`) from source. It installs for your user only, with no admin rights.
+
+1. **Install the tools** in PowerShell:
+   ```powershell
+   winget install Git.Git EclipseAdoptium.Temurin.21.JDK
+   ```
+   Then install mpv with [Scoop](https://scoop.sh), which also puts it on your PATH:
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+   scoop bucket add extras
+   scoop install extras/mpv
+   ```
+   You can also download mpv from [mpv.io](https://mpv.io/installation/) and unpack it, for example to `C:\Programs\mpv`. Then tell musikbox where it is: `setx MUSIKBOX_MPV "C:\Programs\mpv\mpv.exe"`.
+
+   Close PowerShell and open a new one, so it picks up the new PATH.
+2. **Download the source and build the installer.**
+   ```powershell
+   git clone https://github.com/agenta007/musikbox.git
+   cd musikbox
+   .\gradlew.bat :desktop:packageReleaseMsi
+   ```
+   The first build takes a few minutes. It also downloads the WiX toolset, which builds the `.msi`.
+3. **Install:** open `desktop\build\compose\binaries\main-release\msi\` and double-click the `.msi`. musikbox then appears in the Start menu.
+
+To try it without installing, run `.\gradlew.bat :desktop:run`.
+
+What's different on Windows:
+- **No system media controls yet.** Media keys and the Windows media overlay don't control musikbox, because those use MPRIS on Linux.
+- **Firewall prompt.** The first time sync starts, Windows Firewall asks whether musikbox may use the network. Allow it on private networks for LAN sync between devices (TCP 24533, UDP 24534).
+- **Settings, library and downloads** are kept in `%APPDATA%\musikbox`, and the caches in `%LOCALAPPDATA%\musikbox\cache`.
 
 ## Guide: host your own Navidrome server
 
-This guide is for beginners. It covers three setups:
-1. **At home (LAN):** the music plays on your home Wi-Fi only.
-2. **On the web, through port forwarding on your router:** the music plays anywhere, and the server stays at home.
-3. **On the web, through a VPS:** a small rented server that is reachable from the internet. Use it when port forwarding isn't possible.
+This guide is for beginners. It has two parts:
+1. **At home:** Navidrome runs on a computer at home, and the music plays on your home Wi-Fi.
+2. **Anywhere, through port forwarding on your router:** the same server, also reachable over mobile data and from other networks.
 
-Do part 1 first. Parts 2 and 3 build on it.
+Do part 1 first. Part 2 builds on it.
 
 > **Stuck?** Ask an AI assistant, such as Claude or ChatGPT. Tell it your operating system, your router's brand and model, which step you're on, and paste the exact error message. Router menus differ between brands, so an assistant that knows your model can tell you exactly where to click.
 
@@ -138,84 +216,47 @@ Two things keep it working:
 - **Give the server a fixed address.** In your router's settings, look for *DHCP reservation* or *static lease*, and reserve the address for the server. Otherwise it can change after a restart, and the apps stop finding the server.
 - **Allow the port through the firewall**, if your server has one: run `sudo ufw allow 4533/tcp` on Ubuntu, or `sudo firewall-cmd --add-port=4533/tcp --permanent && sudo firewall-cmd --reload` on Fedora.
 
-### Before you put it on the web
+### 2. Anywhere, through port forwarding on your router
 
+**What port forwarding is:** your router has one public address on the internet, and every device at home hides behind it. When a request arrives from outside, the router doesn't know which device it's for, so it drops it. A port-forwarding rule tells the router: "send everything that arrives on this port to this device". Here, web traffic (ports 80 and 443) goes to your server, where [Caddy](https://caddyserver.com/) adds HTTPS and passes it on to Navidrome.
+
+**Before you start:**
 - **Use a strong password** for every Navidrome account, because anyone on the internet can try to log in.
-- **Use HTTPS.** The steps below set up [Caddy](https://caddyserver.com/), which gets a free certificate and renews it by itself. Don't open port 4533 to the internet directly: over plain HTTP, your login can be read on public Wi-Fi.
+- **Don't forward port 4533 directly.** That's plain HTTP, so your login could be read on public Wi-Fi. Caddy gets a free HTTPS certificate and renews it by itself.
 - **Keep Navidrome updated:** run `docker compose pull && docker compose up -d` now and then.
-- **Don't want to expose anything?** Use a VPN instead. [Tailscale](https://tailscale.com/) is the easiest: install it on the server and on your phone, then use the server's Tailscale address in musikbox. Nothing is opened to the internet, but every device that plays music needs the VPN app.
 
-### 2. On the web, through port forwarding on your router
+**Steps:**
 
-This keeps the server at home and lets your router pass web traffic through to it.
-
-1. **Check that your connection can do it.**
+1. **Check that your connection allows it.**
    - Compare the *WAN* or *internet* IP address on your router's status page with the address [ifconfig.me](https://ifconfig.me) shows.
    - If they're the same, port forwarding will work.
-   - If they differ, or the router's address starts with `100.64`–`100.127`, your provider uses CGNAT. Ask the provider for a public IPv4 address (often free, sometimes paid), or use a VPS (part 3).
-2. **Get a name for your home.** Your home IP address changes from time to time, so use a free dynamic DNS service such as [DuckDNS](https://www.duckdns.org/). You get a name like `mymusic.duckdns.org`, and its updater keeps the name pointing at your home address. Many routers have a built-in DDNS setting. If you own a domain, create a record at your DNS provider instead.
+   - If they differ, or the router's address starts with `100.64`–`100.127`, your provider shares one public address between many customers (CGNAT), and forwarded ports never reach you. Ask your provider for a public IPv4 address: it's often free, sometimes paid.
+2. **Get a name for your home.** Your home IP address changes from time to time, so use a free dynamic DNS service such as [DuckDNS](https://www.duckdns.org/).
+   - Log in, choose a name, and you get `yourname.duckdns.org`.
+   - Its updater, or the DDNS setting many routers have, keeps the name pointing at your home address.
+   - In the steps below, replace `yourname.duckdns.org` with your own name.
+   - If you own a domain, create a record at your DNS provider instead.
 3. **Forward the ports.**
-   - In the router, find *Port forwarding*. Some routers call it *Virtual server* or *NAT*.
-   - Forward **TCP 80** and **TCP 443** to your server's fixed LAN address from part 1.
-   - Don't forward 4533.
+   - Open your router's settings, usually at `http://192.168.1.1` or `http://192.168.0.1`. The login is often printed on a sticker on the router.
+   - Find *Port forwarding*. Some routers call it *Virtual server*, *NAT* or *Port mapping*.
+   - Add two rules, both **TCP**, both pointing at your server's fixed LAN address from part 1 (for example `192.168.1.50`):
+     - external port **80** → internal port **80**;
+     - external port **443** → internal port **443**.
+   - Save. Some routers need a restart before the rules apply.
 4. **Install Caddy on the server.** It's in most distributions as `caddy`: run `sudo apt install caddy` or `sudo pacman -S caddy`. Then set `/etc/caddy/Caddyfile` to:
    ```
-   mymusic.duckdns.org {
+   yourname.duckdns.org {
        reverse_proxy localhost:4533
    }
    ```
-   Reload it with `sudo systemctl reload caddy`. Caddy gets the HTTPS certificate on its own within a minute. If the server has a firewall, allow 80 and 443: `sudo ufw allow 80,443/tcp`.
-5. **Test from outside your home.** Turn Wi-Fi off on your phone and open `https://mymusic.duckdns.org` over mobile data. Many routers can't reach their own public address from inside the home, so a test on home Wi-Fi can fail even when everything works.
-6. **Connect musikbox:** set the server to `https://mymusic.duckdns.org`. This one address works both at home and away.
+   Reload it with `sudo systemctl reload caddy`. Caddy gets the HTTPS certificate by itself within a minute. If the server has a firewall, allow 80 and 443: `sudo ufw allow 80,443/tcp`.
+5. **Test from outside your home.** Turn Wi-Fi off on your phone and open `https://yourname.duckdns.org` over mobile data. Many routers can't reach their own public address from inside the home, so a test on home Wi-Fi can fail even when everything works.
+6. **Connect musikbox:** set the server to `https://yourname.duckdns.org`. This one address works both at home and away.
 
-### 3. On the web, through a VPS
-
-A VPS is a small rented Linux server with its own public address. One with 1 GB of RAM costs a few euros a month, for example from Hetzner, Netcup, OVH or DigitalOcean. Use it when your connection has CGNAT, when you can't change the router settings, or when you'd rather not open ports at home. There are two ways to use it:
-
-- **A. Run Navidrome on the VPS.** Copy your music to the VPS, for example with `rsync -av ~/Music/ user@vps:/srv/music/`, then follow part 1 on the VPS and part 2, step 4, for Caddy. There's no router to configure. The catch is that disk space on a VPS is expensive, so this suits smaller libraries.
-- **B. Keep the music at home and tunnel through the VPS.** Your home server connects out to the VPS over [WireGuard](https://www.wireguard.com/). Caddy on the VPS passes the traffic down the tunnel. This works behind CGNAT, and nothing opens on your home router.
-
-**Setting up B:**
-
-1. **Install WireGuard on both machines** (`sudo apt install wireguard` or `sudo pacman -S wireguard-tools`), and make a key pair on each:
-   ```bash
-   wg genkey | tee private.key | wg pubkey > public.key
-   ```
-2. **On the VPS, create `/etc/wireguard/wg0.conf`:**
-   ```ini
-   [Interface]
-   Address = 10.8.0.1/24
-   ListenPort = 51820
-   PrivateKey = <the VPS's private.key>
-
-   [Peer]
-   PublicKey = <the home server's public.key>
-   AllowedIPs = 10.8.0.2/32
-   ```
-3. **On the home server, create `/etc/wireguard/wg0.conf`:**
-   ```ini
-   [Interface]
-   Address = 10.8.0.2/24
-   PrivateKey = <the home server's private.key>
-
-   [Peer]
-   PublicKey = <the VPS's public.key>
-   Endpoint = <the VPS's public IP>:51820
-   AllowedIPs = 10.8.0.1/32
-   PersistentKeepalive = 25          # keeps the tunnel open from behind the router
-   ```
-4. **Start the tunnel on both machines** with `sudo systemctl enable --now wg-quick@wg0`. Then check it from the VPS with `ping 10.8.0.2`.
-5. **Open the VPS firewall** for `51820/udp`, `80/tcp` and `443/tcp`. Your VPS provider may also have a firewall in its web panel.
-6. **Point a name at the VPS.** Create an `A` record for your domain, or a DuckDNS name, pointing at the VPS's IP address.
-7. **Install Caddy on the VPS** and set its Caddyfile to:
-   ```
-   mymusic.example.com {
-       reverse_proxy 10.8.0.2:4533
-   }
-   ```
-8. **Connect musikbox:** set the server to `https://mymusic.example.com`.
-
-If `ping` works but the page doesn't load, the home server's firewall is probably blocking 4533 on the tunnel. Allow it with `sudo ufw allow in on wg0 to any port 4533 proto tcp`.
+**If it doesn't load:**
+- **On the server, check that Caddy is running and got its certificate:** `sudo systemctl status caddy` and `journalctl -u caddy -n 50`.
+- **Check the router rules point at the server's current LAN address** (`hostname -I`).
+- **Check that the DuckDNS name points at your home:** `nslookup yourname.duckdns.org` should show the address from ifconfig.me.
 
 ## Tutorial: bring your Spotify playlists
 
@@ -316,6 +357,9 @@ desktop/install.sh --uninstall                  # remove it; your data is kept
 ./gradlew :desktop:createReleaseDistributable   # self-contained app in desktop/build/compose/binaries/main-release/
 ./gradlew :desktop:packageDeb                   # .deb (packageRpm for Fedora)
 
+# Windows desktop (in PowerShell)
+.\gradlew.bat :desktop:packageReleaseMsi         # per-user .msi installer in desktop\build\compose\binaries\main-release\msi\
+
 # Tests
 ./gradlew :core:test :app:testDebugUnitTest
 MB_TEST_SERVER=http://127.0.0.1:4533 ./gradlew :core:test --rerun   # also run the tests that need a real Navidrome (they write test data to it)
@@ -325,7 +369,7 @@ MB_TEST_SERVER=http://127.0.0.1:4533 ./gradlew :core:test --rerun   # also run t
 
 ### Desktop data
 
-The desktop app follows the XDG base directories:
+On Linux, the desktop app follows the XDG base directories. On Windows, the same files are in `%APPDATA%\musikbox`, and the caches in `%LOCALAPPDATA%\musikbox\cache`.
 
 | Path | Contents |
 |---|---|
@@ -335,7 +379,7 @@ The desktop app follows the XDG base directories:
 | `~/.local/share/musikbox/downloads/` | downloaded songs |
 | `~/.cache/musikbox/` | stream and artwork caches |
 
-mpv runs with `--no-config`, so your own mpv setup can't interfere. To pass extra options, set `MUSIKBOX_MPV_OPTS`, for example `MUSIKBOX_MPV_OPTS="--audio-device=pipewire/…" musikbox`. A watchdog stops mpv within about 2 seconds if the app dies.
+mpv runs with `--no-config`, so your own mpv setup can't interfere. To pass extra options, set `MUSIKBOX_MPV_OPTS`, for example `MUSIKBOX_MPV_OPTS="--audio-device=pipewire/…" musikbox`. On Linux, a watchdog stops mpv within about 2 seconds if the app dies. On Windows, mpv is stopped when the app quits; after a crash, end it in Task Manager.
 
 Keyboard shortcuts:
 

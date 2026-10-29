@@ -1,6 +1,7 @@
 package app.musikbox.desktop.player
 
 import app.musikbox.data.remote.SubsonicClient
+import app.musikbox.desktop.AppPaths
 import app.musikbox.desktop.data.Downloads
 import app.musikbox.desktop.data.SettingsRepo
 import app.musikbox.desktop.data.StreamCache
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 /**
  * mpv plays audio itself and offers no PCM tap, so for the visualizer we let mpv decode a copy
@@ -49,13 +51,20 @@ class TrackPcm(
         val br = settings.current.streamBitrate
         val source = downloads.file(id)?.absolutePath ?: cache.file(id, br)?.absolutePath ?: api.streamUrl(id, br) ?: return null
         val mpv = Mpv.findExecutable("mpv") ?: return null
-        val proc = ProcessBuilder(
-            mpv, "--no-config", "--really-quiet", "--no-video", "--untimed", "--length=$MAX_SECONDS",
-            "--ao=pcm", "--ao-pcm-waveheader=no", "--ao-pcm-file=/dev/stdout",
-            "--audio-channels=mono", "--audio-samplerate=$RATE", "--audio-format=s16", source,
-        ).redirectError(ProcessBuilder.Redirect.DISCARD).start()
-        val bytes = ByteArrayOutputStream(1 shl 20).also { out -> proc.inputStream.use { it.copyTo(out) } }.toByteArray()
-        proc.waitFor()
+        // Windows has no /dev/stdout, so mpv writes a temporary file there instead.
+        val tmp = if (AppPaths.isWindows) File.createTempFile("musikbox-pcm-", ".raw", AppPaths.cache) else null
+        val bytes = try {
+            val proc = ProcessBuilder(
+                mpv, "--no-config", "--really-quiet", "--no-video", "--untimed", "--length=$MAX_SECONDS",
+                "--ao=pcm", "--ao-pcm-waveheader=no", "--ao-pcm-file=${tmp?.absolutePath ?: "/dev/stdout"}",
+                "--audio-channels=mono", "--audio-samplerate=$RATE", "--audio-format=s16", source,
+            ).redirectError(ProcessBuilder.Redirect.DISCARD).start()
+            val out = ByteArrayOutputStream(1 shl 20).also { out -> proc.inputStream.use { it.copyTo(out) } }.toByteArray()
+            proc.waitFor()
+            tmp?.readBytes() ?: out
+        } finally {
+            tmp?.delete()
+        }
         if (bytes.size < 4) return null
         return ShortArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xff) or (bytes[2 * i + 1].toInt() shl 8)).toShort() }
     }

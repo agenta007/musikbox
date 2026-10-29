@@ -7,6 +7,7 @@
 #
 # Installs to ~/.local/opt/musikbox, links ~/.local/bin/musikbox, and adds a launcher
 # entry + icon so it shows up in the KDE/GNOME app menu. Requires mpv at runtime.
+# On NixOS, run it from the repo's shell.nix:  nix-shell --run desktop/install.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,6 +26,13 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     exit 0
 fi
 
+nixos=0
+if [[ -e /etc/NIXOS ]]; then
+    nixos=1
+    [[ -n "${LD_LIBRARY_PATH:-}" && -n "${JAVA_HOME:-}" ]] ||
+        { echo "on NixOS, run this from the repo's nix-shell: nix-shell --run desktop/install.sh" >&2; exit 1; }
+fi
+
 command -v mpv >/dev/null || log "WARNING: mpv is not installed — musikbox needs it for playback (e.g. sudo pacman -S mpv)"
 
 if [[ "${1:-}" != "--no-build" ]]; then
@@ -38,7 +46,30 @@ log "installing to $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$(dirname "$APP_DIR")" "$PREFIX/bin" "$(dirname "$DESKTOP_FILE")" "$ICON_DIR/256x256/apps" "$ICON_DIR/scalable/apps"
 cp -a "$src" "$APP_DIR"
-ln -sf "$APP_DIR/bin/musikbox" "$PREFIX/bin/musikbox"
+launcher="$APP_DIR/bin/musikbox"
+if [[ $nixos -eq 1 ]]; then
+    # The bundled Java runtime links against the JDK's store paths, and Skia finds its libraries
+    # through LD_LIBRARY_PATH. Register them, and shell.nix's mpv, as GC roots so
+    # nix-collect-garbage keeps them; the launcher then works from the app menu too.
+    log "NixOS: pinning the JDK, mpv and libraries from shell.nix as GC roots"
+    mpv_bin=$(readlink -f "$(command -v mpv)")
+    mkdir -p "$APP_DIR/gcroots"
+    i=0
+    for p in "$(readlink -f "$JAVA_HOME")" "$mpv_bin" ${LD_LIBRARY_PATH//:/ }; do
+        [[ $p == /nix/store/* ]] || continue
+        nix-store --add-root "$APP_DIR/gcroots/$i" --realise "$(cut -d/ -f1-4 <<<"$p")" >/dev/null
+        i=$((i + 1))
+    done
+    launcher="$APP_DIR/musikbox-nixos"
+    cat > "$launcher" <<EOS
+#!/bin/sh
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+export MUSIKBOX_MPV="\${MUSIKBOX_MPV:-$mpv_bin}"
+exec "$APP_DIR/bin/musikbox" "\$@"
+EOS
+    chmod +x "$launcher"
+fi
+ln -sf "$launcher" "$PREFIX/bin/musikbox"
 cp desktop/src/main/resources/musikbox.png "$ICON_DIR/256x256/apps/musikbox.png"
 cp desktop/src/main/resources/musikbox.svg "$ICON_DIR/scalable/apps/musikbox.svg"
 
@@ -48,7 +79,7 @@ Type=Application
 Name=musikbox
 GenericName=Music Player
 Comment=Playlist-first player for Navidrome and Subsonic
-Exec=$APP_DIR/bin/musikbox
+Exec=$launcher
 Icon=musikbox
 Terminal=false
 Categories=AudioVideo;Audio;Player;
