@@ -17,3 +17,4 @@ hs_err_pid*.log
 claude-resume.sh
 deploy.sh
 fdroid.doc
+docs

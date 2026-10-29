@@ -17,7 +17,7 @@ musikbox is only a player. It brings no music and no streaming service, so you n
 
 - **Your own music files** (MP3, FLAC, Opus, AAC…) on a hard disk or SSD. musikbox plays what you own, nothing else.
 - **A [Navidrome](https://www.navidrome.org/docs/installation/) server** (or another Subsonic-compatible server) running on a computer that is always on and has that disk: a home server, NAS, Raspberry Pi or rented server. It indexes your files and streams them to the apps.
-- **The server reachable from the internet**, so the app works away from home: an open (forwarded) port on your router to Navidrome (4533 by default), or better a reverse proxy with HTTPS on 443, plus a domain name or dynamic DNS. At home, the server's LAN address is enough, and a VPN into your home network works too.
+- **The server reachable from the internet**, so the app works away from home: an open (forwarded) port on your router to Navidrome (4533 by default), or better a reverse proxy with HTTPS on 443, plus a domain name or dynamic DNS. At home, the server's LAN address is enough, and a VPN into your home network works too. New to this? Follow the [hosting guide](#guide-host-your-own-navidrome-server).
 - A Navidrome user account. Playlists are created in musikbox, in Navidrome's web UI, or come from `.m3u` files in your music folder.
 
 ## Features
@@ -83,6 +83,217 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 
 - **Android**: an F-Droid release is on its way; until then, build an APK as shown below.
 - **Linux desktop**: run `desktop/install.sh` (see below). It needs `mpv` (`sudo pacman -S mpv` or `sudo apt install mpv`).
+
+## Guide: host your own Navidrome server
+
+This guide is for beginners. It covers three setups:
+1. **At home (LAN):** the music plays on your home Wi-Fi only.
+2. **On the web, through port forwarding on your router:** the music plays anywhere, and the server stays at home.
+3. **On the web, through a VPS:** a small rented server that is reachable from the internet. Use it when port forwarding isn't possible.
+
+Do part 1 first. Parts 2 and 3 build on it.
+
+> **Stuck?** Ask an AI assistant, such as Claude or ChatGPT. Tell it your operating system, your router's brand and model, which step you're on, and paste the exact error message. Router menus differ between brands, so an assistant that knows your model can tell you exactly where to click.
+
+### 1. At home (LAN)
+
+You need a computer that stays on and holds your music: an old PC or laptop, a NAS, or a Raspberry Pi 4/5. The examples use Linux with Docker. Navidrome also has packages for Debian/Ubuntu (`.deb`), Fedora (`.rpm`), Arch (`navidrome` in the AUR), macOS and Windows; see [its installation docs](https://www.navidrome.org/docs/installation/).
+
+**Install Docker** (Debian/Ubuntu shown; on Arch use `sudo pacman -S docker docker-compose`):
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER      # then log out and back in
+```
+
+**Create `~/navidrome/compose.yaml`**, and change `/path/to/your/music` to the folder that holds your music:
+```yaml
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    user: 1000:1000                  # your user id and group id: run `id` to check
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    environment:
+      ND_SCANSCHEDULE: 1h            # look for new music every hour
+    volumes:
+      - ./data:/data                 # Navidrome's database and settings
+      - /path/to/your/music:/music:ro
+```
+
+**Start it:**
+```bash
+cd ~/navidrome
+docker compose up -d
+docker compose logs -f             # watch it scan your music; Ctrl+C to stop watching
+```
+
+**Find the server's address** on your network: run `hostname -I` on Linux, or `ipconfig` on Windows. It looks like `192.168.1.50`.
+
+**Create your account:** open `http://192.168.1.50:4533` in a browser on any device at home. The first account you create is the admin.
+
+**Connect musikbox:** enter `http://192.168.1.50:4533` as the server, with your username and password.
+
+Two things keep it working:
+- **Give the server a fixed address.** In your router's settings, look for *DHCP reservation* or *static lease*, and reserve the address for the server. Otherwise it can change after a restart, and the apps stop finding the server.
+- **Allow the port through the firewall**, if your server has one: run `sudo ufw allow 4533/tcp` on Ubuntu, or `sudo firewall-cmd --add-port=4533/tcp --permanent && sudo firewall-cmd --reload` on Fedora.
+
+### Before you put it on the web
+
+- **Use a strong password** for every Navidrome account, because anyone on the internet can try to log in.
+- **Use HTTPS.** The steps below set up [Caddy](https://caddyserver.com/), which gets a free certificate and renews it by itself. Don't open port 4533 to the internet directly: over plain HTTP, your login can be read on public Wi-Fi.
+- **Keep Navidrome updated:** run `docker compose pull && docker compose up -d` now and then.
+- **Don't want to expose anything?** Use a VPN instead. [Tailscale](https://tailscale.com/) is the easiest: install it on the server and on your phone, then use the server's Tailscale address in musikbox. Nothing is opened to the internet, but every device that plays music needs the VPN app.
+
+### 2. On the web, through port forwarding on your router
+
+This keeps the server at home and lets your router pass web traffic through to it.
+
+1. **Check that your connection can do it.**
+   - Compare the *WAN* or *internet* IP address on your router's status page with the address [ifconfig.me](https://ifconfig.me) shows.
+   - If they're the same, port forwarding will work.
+   - If they differ, or the router's address starts with `100.64`–`100.127`, your provider uses CGNAT. Ask the provider for a public IPv4 address (often free, sometimes paid), or use a VPS (part 3).
+2. **Get a name for your home.** Your home IP address changes from time to time, so use a free dynamic DNS service such as [DuckDNS](https://www.duckdns.org/). You get a name like `mymusic.duckdns.org`, and its updater keeps the name pointing at your home address. Many routers have a built-in DDNS setting. If you own a domain, create a record at your DNS provider instead.
+3. **Forward the ports.**
+   - In the router, find *Port forwarding*. Some routers call it *Virtual server* or *NAT*.
+   - Forward **TCP 80** and **TCP 443** to your server's fixed LAN address from part 1.
+   - Don't forward 4533.
+4. **Install Caddy on the server.** It's in most distributions as `caddy`: run `sudo apt install caddy` or `sudo pacman -S caddy`. Then set `/etc/caddy/Caddyfile` to:
+   ```
+   mymusic.duckdns.org {
+       reverse_proxy localhost:4533
+   }
+   ```
+   Reload it with `sudo systemctl reload caddy`. Caddy gets the HTTPS certificate on its own within a minute. If the server has a firewall, allow 80 and 443: `sudo ufw allow 80,443/tcp`.
+5. **Test from outside your home.** Turn Wi-Fi off on your phone and open `https://mymusic.duckdns.org` over mobile data. Many routers can't reach their own public address from inside the home, so a test on home Wi-Fi can fail even when everything works.
+6. **Connect musikbox:** set the server to `https://mymusic.duckdns.org`. This one address works both at home and away.
+
+### 3. On the web, through a VPS
+
+A VPS is a small rented Linux server with its own public address. One with 1 GB of RAM costs a few euros a month, for example from Hetzner, Netcup, OVH or DigitalOcean. Use it when your connection has CGNAT, when you can't change the router settings, or when you'd rather not open ports at home. There are two ways to use it:
+
+- **A. Run Navidrome on the VPS.** Copy your music to the VPS, for example with `rsync -av ~/Music/ user@vps:/srv/music/`, then follow part 1 on the VPS and part 2, step 4, for Caddy. There's no router to configure. The catch is that disk space on a VPS is expensive, so this suits smaller libraries.
+- **B. Keep the music at home and tunnel through the VPS.** Your home server connects out to the VPS over [WireGuard](https://www.wireguard.com/). Caddy on the VPS passes the traffic down the tunnel. This works behind CGNAT, and nothing opens on your home router.
+
+**Setting up B:**
+
+1. **Install WireGuard on both machines** (`sudo apt install wireguard` or `sudo pacman -S wireguard-tools`), and make a key pair on each:
+   ```bash
+   wg genkey | tee private.key | wg pubkey > public.key
+   ```
+2. **On the VPS, create `/etc/wireguard/wg0.conf`:**
+   ```ini
+   [Interface]
+   Address = 10.8.0.1/24
+   ListenPort = 51820
+   PrivateKey = <the VPS's private.key>
+
+   [Peer]
+   PublicKey = <the home server's public.key>
+   AllowedIPs = 10.8.0.2/32
+   ```
+3. **On the home server, create `/etc/wireguard/wg0.conf`:**
+   ```ini
+   [Interface]
+   Address = 10.8.0.2/24
+   PrivateKey = <the home server's private.key>
+
+   [Peer]
+   PublicKey = <the VPS's public.key>
+   Endpoint = <the VPS's public IP>:51820
+   AllowedIPs = 10.8.0.1/32
+   PersistentKeepalive = 25          # keeps the tunnel open from behind the router
+   ```
+4. **Start the tunnel on both machines** with `sudo systemctl enable --now wg-quick@wg0`. Then check it from the VPS with `ping 10.8.0.2`.
+5. **Open the VPS firewall** for `51820/udp`, `80/tcp` and `443/tcp`. Your VPS provider may also have a firewall in its web panel.
+6. **Point a name at the VPS.** Create an `A` record for your domain, or a DuckDNS name, pointing at the VPS's IP address.
+7. **Install Caddy on the VPS** and set its Caddyfile to:
+   ```
+   mymusic.example.com {
+       reverse_proxy 10.8.0.2:4533
+   }
+   ```
+8. **Connect musikbox:** set the server to `https://mymusic.example.com`.
+
+If `ping` works but the page doesn't load, the home server's firewall is probably blocking 4533 on the tunnel. Allow it with `sudo ufw allow in on wg0 to any port 4533 proto tcp`.
+
+## Tutorial: bring your Spotify playlists
+
+Navidrome only plays files you have on disk. This tutorial turns your Spotify playlists into music files and Navidrome playlists. You export the playlists with Exportify, and the Python scripts in [`tools/`](tools/) download each song and write the playlists. Read the scripts before you run them: each one starts with a docstring that explains what it does, and `--help` lists every option. Only download music you're allowed to keep where you live.
+
+### 1. Export your playlists with Exportify
+
+[Exportify](https://github.com/watsonbox/exportify) saves Spotify playlists as CSV files. You can use it in either of two ways:
+
+- **Web version:** open [exportify.net](https://exportify.net).
+- **Locally:** clone it and run it yourself, so your Spotify login never leaves your machine:
+  ```bash
+  git clone https://github.com/watsonbox/exportify.git
+  cd exportify
+  yarn install
+  yarn start          # then open the address it prints
+  ```
+  If the local copy asks for a Spotify client ID, follow its README.
+
+Then:
+1. Click **Get Started** and log in with your Spotify account.
+2. Click **Export** next to one playlist, or **Export All** to get a zip with every playlist.
+3. Put the `.csv` files, unzipped, into `tools/csv/`. Each file's name becomes the playlist's name, so rename the files if you want different names.
+
+### 2. Install what the scripts need
+
+```bash
+pip install yt-dlp mutagen        # mutagen is only used by gen_playlists.py
+sudo pacman -S ffmpeg             # or: sudo apt install ffmpeg
+curl -fsSL https://deno.land/install.sh | sh
+```
+
+yt-dlp needs a JavaScript runtime (deno, or node) to solve YouTube's signature check. Without one, every track fails with "Requested format is not available".
+
+### 3. Download the songs: `archive.py`
+
+```bash
+cd tools
+python3 archive.py --dry-run   # search and print the picks, download nothing
+python3 archive.py             # download everything in csv/
+```
+
+What it does:
+- It reads every CSV in `csv/` and merges them into one list of unique tracks. A song that is on twenty playlists is downloaded once.
+- It searches YouTube for "artist title" for each track and keeps the result whose length is closest to the Spotify track's.
+- It saves the audio as MP3 with the album cover embedded, into `tools/tracks_spotify/`, and writes one `.m3u` playlist per CSV next to the files.
+- It saves its progress in `iterator.txt`, so you can stop it with Ctrl+C and run it again later to carry on where it stopped.
+- If 10 tracks in a row fail, it stops and winds the position back so those tracks are retried next time.
+
+Useful options:
+
+| Option | What it does |
+|---|---|
+| `-c NAME` | only the CSVs whose name contains NAME (repeatable) |
+| `-P` | pick playlists from a searchable menu |
+| `--manual` | choose the YouTube result for every track yourself |
+| `--codec opus` | save another format instead of MP3 |
+| `--playlists-only` | rewrite the `.m3u` files from what's already downloaded |
+| `--reset` / `--start N` | start again from the first track, or from track N |
+| `--cookies FILE` / `--cookies-from-browser firefox` | sign in to YouTube when it asks you to confirm you're not a bot |
+| `--proxy socks5://127.0.0.1:1080` | download through a proxy |
+
+`ytsearch.py` is the YouTube search that `archive.py` uses. You can also run it on its own to check what a search finds: `python3 ytsearch.py "artist title" -n 5`.
+
+### 4. Give the music and playlists to Navidrome
+
+Move `tracks_spotify/` into Navidrome's music folder. The playlists inside it refer to the songs by relative paths, so they keep working after the move. On its next scan, Navidrome imports the songs and the `.m3u` playlists, and musikbox shows them under **Playlists**.
+
+Two scripts can write the playlists in other ways. Both have the maintainer's music folder, `/mnt/extern/navidrome/music`, built in as the default, so pass your own paths or change the constants at the top of each script:
+
+- **`create_playlists.py`** puts every playlist into one folder and gives each its original exported name through a `#PLAYLIST:` line, which is the name Navidrome shows. It makes one playlist per CSV from the downloaded tracks, and one per folder of music elsewhere in your library. The output folder has to be inside Navidrome's music folder, or Navidrome won't import it.
+  ```bash
+  python3 create_playlists.py /path/to/music --out /path/to/music/playlists --dry-run
+  ```
+- **`gen_playlists.py`** writes a `<folder>.m3u` into every folder that holds music, so every album or artist folder becomes a playlist. It reads the tags with mutagen, and ffprobe for files mutagen can't read, and caches them in `~/.cache/gen_playlists.json`, so later runs only read new files. Run it again after adding music, and the playlists are rebuilt from what's on disk.
+  ```bash
+  python3 gen_playlists.py /path/to/music
+  ```
 
 ## Building
 
