@@ -28,6 +28,7 @@ musikbox is only a player. It brings no music and no streaming service, so you n
 - **Saved playlists 🔖**: playlists you bookmark. They sync between your devices through your server (see [Sync](#sync-between-devices)).
 - **Playlists**: every playlist on the server, filterable (All / Mine / Offline) and sortable (name, recently updated, size).
 - **Search playlists**: a live filter by playlist name. If nothing matches, one tap searches the whole server for songs.
+- **Search in a playlist**: filter a playlist's songs by title, artist or album, ignoring case and accents, so "bjork joga" finds Jóga. Songs keep their numbers, and playing one plays the playlist from there.
 - Quick actions on any playlist (⋮, long-press or right-click): play, shuffle, download, save, open.
 
 ### Offline and caching
@@ -43,6 +44,7 @@ musikbox is only a player. It brings no music and no streaming service, so you n
 ### Discover
 Navidrome provides the raw material but has no recommender of its own: play counts, last-played dates, stars, genres, newest and random albums, and similar songs from its agents (Last.fm, ListenBrainz, Deezer…). musikbox builds the recommender on top of that, in the shared `core` module:
 - **Taste profile**: artist and genre affinity from your most-played and recently played albums, plus your stars.
+- **Daily mixes**: pick up to 5 genres and get a mix for each one, new every day. Each mix is mostly songs you like, with some you haven't heard, and no song appears in two mixes. Until you pick, they use your top genres. Your pick follows you across devices. Mixes need songs with genre tags.
 - **Discover Mix**: only songs you've **never played**, at most 2 per artist and album, with no artist twice in a row. You can play it, shuffle it, or save it as a playlist.
 - **Sections**: *Sounds like your favourites* · *More from artists you love* · *Unplayed ⟨genre⟩* · *New in your library* · *Rediscover* (loved, but not played in 60+ days) · *Outside your comfort zone*.
 
@@ -57,6 +59,11 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 ### Sync between devices
 - **Through your server, automatically.** Saved playlists, recently played and the device key are stored as JSON in one **private, empty playlist named `.musikbox`**, because Subsonic has nowhere else to keep them. Every app merges with it on start, when it comes back to the foreground, every 2 minutes and shortly after any change. musikbox hides this playlist. Navidrome's web UI and other Subsonic apps show it, but only to you.
 - **On the local network or a VPN.** Each app runs a small sync server on TCP **24533** and finds other devices by UDP broadcast on **24534**. You can also add devices by IP. This adds **Continue here**, which takes over another device's queue at its exact position.
+- **Play on other devices.** A devices button (Now Playing on Android, the player bar on desktop) lists your devices on the network and what each is playing. From it you can:
+  - pause, play or skip any of them;
+  - **Play here**: move another device's queue to this one, at its position, and pause it there;
+  - **Play there**: move this device's queue to another and pause it here;
+  - **Also play there**: the same music on several devices. When you play, pause, skip or seek on this one, the others follow within a fraction of a second. That's close enough for different rooms, but not sample-accurate, so two speakers in one room may echo. Devices you don't link keep playing their own music, and you can still control each one from the menu.
 - Merges are last-writer-wins per field, so devices can sync in any order. The download list syncs only if *Share download list* is on for both devices.
 - Requests between devices are signed with HMAC-SHA256 using a key that only your account can read, and are rejected if more than ±2 minutes old.
 
@@ -66,6 +73,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 - The queue and position survive restarts.
 - Scrobbling: *now playing* is sent when a track starts, and a play is submitted at 50% or 4 minutes.
 - Streaming can use the original file or be transcoded at 320 to 96 kbps.
+- **Equalizer**: 10 bands from 31 Hz to 16 kHz, ±12 dB, with presets (Bass boost, Vocal, Rock, Small speakers and more). It's the same in both apps and changes the sound as you drag. It lowers the overall level by the biggest boost, so boosted bands don't distort. Each device keeps its own setting, because the right sound depends on its speakers or headphones. Open it from Now Playing or Settings on Android, and from the player bar or Settings on desktop.
 - **Visualizer** in Now Playing, in the style of Feishin and audioMotion: a log-spaced 32 Hz – 16 kHz spectrum with peak caps, colored from the cover art. Styles are **Bars**, **Mirror** and **Radial**. On Android it reads the audio ExoPlayer is already playing, so it needs no microphone permission.
 
 ### Editing
@@ -340,6 +348,10 @@ Two scripts can write the playlists in other ways. Both have the maintainer's mu
   ```bash
   python3 gen_playlists.py /path/to/music
   ```
+
+## Scout: find new music for your server
+
+Scout is an optional daemon for the machine running Navidrome. It's a separate project, kept in its own repository. It treats every artist on your server as followed, watches for their new releases, and suggests similar artists. A Navidrome admin approves each one on a web page, and scout then fetches the album from YouTube, tags it, adds it to your music folder and has Navidrome rescan.
 
 ## Building
 
