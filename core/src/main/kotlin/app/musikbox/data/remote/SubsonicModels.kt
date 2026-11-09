@@ -52,7 +52,14 @@ data class SubsonicResponse(
     val starred2: Starred2Dto? = null,
     val lyricsList: LyricsListDto? = null,
     val lyrics: LegacyLyricsDto? = null,
+    val genres: GenresDto? = null,
 )
+
+@Serializable
+data class GenresDto(val genre: List<GenreDto> = emptyList())
+
+@Serializable
+data class GenreDto(val value: String = "", val songCount: Int = 0, val albumCount: Int = 0)
 
 @Serializable
 data class SubsonicError(val code: Int = 0, val message: String? = null)

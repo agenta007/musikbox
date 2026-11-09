@@ -51,6 +51,8 @@ interface SyncHost {
     suspend fun applyPrefs(changes: Map<String, PrefRecord>)
     suspend fun nowPlaying(): NowPlayingInfo?
     suspend fun pausePlayback()
+    /** Do what another device's remote control asked: play, pause, skip, seek or play a queue. */
+    suspend fun remoteCommand(command: RemoteCommand)
     fun log(message: String)
 }
 
@@ -99,7 +101,7 @@ data class SyncStatus(
 
 /**
  * Peer-to-peer sync between a user's musikbox apps on the LAN (or VPN):
- *  - serves a small signed JSON API on [port] (hello, sync, now-playing, pause);
+ *  - serves a small signed JSON API on [port] (hello, sync, now-playing, pause, control);
  *  - finds peers with a UDP broadcast beacon every [BEACON_INTERVAL_MS], plus hand-added IPs;
  *  - syncs with every reachable peer of the same account periodically and soon after local changes.
  * Merging is last-writer-wins per field, so any device can sync with any other in any order.
@@ -269,6 +271,42 @@ class SyncEngine(
         np
     }
 
+    /**
+     * The remote control: tell another device to play, pause, skip, seek or play a queue.
+     * Only peers of the same account accept it (the request is signed with the account key).
+     */
+    suspend fun control(peer: Peer, command: RemoteCommand): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching<Unit> {
+            post<Unit?>(peer, "/musikbox/v1/control", command.copy(from = host.deviceName))
+        }.recoverCatching { e ->
+            // Versions before the remote control answer 404.
+            if (e.message == "HTTP 404") throw IOException("Update musikbox on ${peer.displayName} to control it from here")
+            throw e
+        }.onSuccess {
+            // Show the result right away instead of at the next 45-second sync.
+            refreshNowPlaying(peer)
+        }.onFailure { host.log("Couldn't send ${command.action} to ${peer.displayName}: ${it.message}") }
+    }
+
+    /** Ask one peer what it's playing now. */
+    suspend fun refreshNowPlaying(peer: Peer) = withContext(Dispatchers.IO) {
+        if (peer.state != PeerState.Synced) return@withContext
+        runCatching { get<NowPlayingInfo?>(peer, "/musikbox/v1/now-playing", signed = true) }
+            .onSuccess { np -> update(peer.key) { it.copy(nowPlaying = np, lastSeenAt = System.currentTimeMillis()) } }
+    }
+
+    /** For a devices menu that is open: what every reachable device of this account is playing. */
+    suspend fun refreshAllNowPlaying() = coroutineScope {
+        peerMap.values.filter { it.state == PeerState.Synced }.map { async { refreshNowPlaying(it) } }.awaitAll()
+        Unit
+    }
+
+    /** The [RemoteSender] for a [PlaybackGroup]: reach a device by its id, wherever it is now. */
+    val sender = RemoteSender { id, command ->
+        val peer = peerMap.values.firstOrNull { it.id == id && it.state == PeerState.Synced }
+        peer != null && control(peer, command).isSuccess
+    }
+
     private fun myHello() = DeviceHello(
         id = host.deviceId,
         name = host.deviceName,
@@ -287,6 +325,7 @@ class SyncEngine(
         val bytes = when (body) {
             null -> ByteArray(0)
             is SyncRequest -> json.encodeToString(SyncRequest.serializer(), body).toByteArray()
+            is RemoteCommand -> json.encodeToString(RemoteCommand.serializer(), body).toByteArray()
             else -> error("unsupported body")
         }
         return execute(peer, "POST", path, bytes, signed = true) { if (it.isBlank()) null as T else json.decodeFromString<T>(it) }
@@ -345,6 +384,16 @@ class SyncEngine(
                     host.pausePlayback()
                     host.log("Paused by another device (continued there)")
                     HttpResponse(200, "null")
+                }
+                "POST /musikbox/v1/control" -> {
+                    val command = runCatching { json.decodeFromString(RemoteCommand.serializer(), req.body.decodeToString()) }.getOrNull()
+                    if (command == null || command.action !in RemoteCommand.ACTIONS) {
+                        HttpResponse(400, """{"error":"unknown command"}""")
+                    } else {
+                        host.log("${command.from ?: "Another device"}: ${command.action}")
+                        host.remoteCommand(command)
+                        HttpResponse(200, "null")
+                    }
                 }
                 else -> HttpResponse(404, """{"error":"not found"}""")
             }

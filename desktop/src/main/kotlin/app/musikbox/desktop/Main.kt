@@ -114,7 +114,13 @@ fun main() {
             }
             LaunchedEffect(Unit) {
                 container.start(
-                    onRaise = { window.isVisible = true; window.toFront(); window.requestFocus() },
+                    onRaise = {
+                        // toFront() leaves a minimized window minimized.
+                        window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                        window.isVisible = true
+                        window.toFront()
+                        window.requestFocus()
+                    },
                     onQuit = ::quit,
                 )
             }

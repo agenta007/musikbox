@@ -11,11 +11,14 @@ import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import app.musikbox.data.ActivityLog
+import app.musikbox.audio.EqualizerController
+import app.musikbox.discover.DailyMixModel
 import app.musikbox.discover.DiscoverEngine
 import app.musikbox.discover.DiscoverModel
 import app.musikbox.lyrics.FileLyricsCache
 import app.musikbox.lyrics.LyricsService
 import app.musikbox.sync.AndroidSyncHost
+import app.musikbox.sync.PlaybackGroup
 import app.musikbox.sync.SyncEngine
 import kotlinx.coroutines.flow.drop
 import app.musikbox.data.LibraryRepository
@@ -88,12 +91,16 @@ class AppContainer(context: Context) {
 
     val queueStore = QueueStore(appContext)
 
+    /** The equalizer: the playback service reads it on every audio buffer, the UI changes it. */
+    val equalizer = EqualizerController(settings.current.equalizer, scope) { settings.setEqualizer(it) }
+
     /** PCM tap for the Now Playing visualizer (same process as the playback service). */
     val visualizerTap = VisualizerTap()
 
     val player = PlayerConnection(appContext, library, queueStore, scope)
 
     val discover = DiscoverModel(DiscoverEngine(api), scope)
+    val dailyMixes = DailyMixModel(api, File(appContext.filesDir, "daily-mixes.json"), scope, onPicked = { cloud.requestSync() })
 
     val lyrics = LyricsService(
         api, okHttp, FileLyricsCache(File(appContext.filesDir, "lyrics")),
@@ -103,10 +110,23 @@ class AppContainer(context: Context) {
 
     val syncHost = AndroidSyncHost(appContext, settings, library, player, log)
     val sync = SyncEngine(syncHost, okHttp, scope)
+    /** Devices following this one: the same music, kept in step. */
+    val group = PlaybackGroup(sync.sender, scope)
     /** Saved playlists / recents / download list through the server's private `.musikbox` playlist. */
-    val cloud = CloudSync(api, syncHost, scope, { settings.current.credentials?.username }, onKeyChanged = { sync.syncNow() })
+    val cloud: CloudSync = CloudSync(api, syncHost, scope, { settings.current.credentials?.username }, onKeyChanged = { sync.syncNow() }, mixGenres = dailyMixes)
     private val multicastLock = syncHost.multicastLock()
     private var likedLoop: Job? = null
+
+    /** Keeps devices playing the same music in step (see [PlaybackGroup]). Fed only while one is linked. */
+    private fun feedGroup() {
+        scope.launch { player.state.collect { if (group.linked.value.isNotEmpty()) group.onLocal(syncHost.nowPlaying()) } }
+        scope.launch {
+            while (true) {
+                delay(1_000)  // catches seeks, which don't change the player state
+                if (group.linked.value.isNotEmpty()) group.onLocal(syncHost.nowPlaying())
+            }
+        }
+    }
 
     fun startSync() {
         runCatching { multicastLock?.acquire() }
@@ -138,6 +158,7 @@ class AppContainer(context: Context) {
     }
 
     init {
+        feedGroup()
         scope.launch {
             settings.settings.map { it.wifiOnlyDownloads }.distinctUntilChanged().collect(offline::setWifiOnly)
         }
@@ -179,6 +200,7 @@ class AppContainer(context: Context) {
         clearStreamCache()
         withContext(Dispatchers.IO) { database.clearAllTables() }
         discover.clear()
+        dailyMixes.clear()
         settings.clearCredentials()
     }
 }

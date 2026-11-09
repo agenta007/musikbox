@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.musikbox.audio.EqSettings
 import app.musikbox.lyrics.LyricsService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +46,8 @@ data class AppSettings(
     val syncEnabled: Boolean = true,
     val shareDownloadList: Boolean = false,
     val manualPeers: List<String> = emptyList(),
+    /** This phone's equalizer. Not synced: the right sound depends on the speakers or headphones. */
+    val equalizer: EqSettings = EqSettings(),
 )
 
 class SettingsStore(private val context: Context, scope: CoroutineScope) {
@@ -72,6 +75,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         val syncEnabled = booleanPreferencesKey("sync_enabled")
         val shareDownloads = booleanPreferencesKey("share_download_list")
         val manualPeers = stringSetPreferencesKey("manual_peers")
+        val equalizer = stringPreferencesKey("equalizer")
     }
 
     private val flow = context.settingsDataStore.data.map { it.toSettings() }
@@ -113,6 +117,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
             syncEnabled = this[Keys.syncEnabled] ?: true,
             shareDownloadList = this[Keys.shareDownloads] ?: false,
             manualPeers = this[Keys.manualPeers]?.sorted().orEmpty(),
+            equalizer = EqSettings.decode(this[Keys.equalizer]),
         )
     }
 
@@ -135,6 +140,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setSyncEnabled(v: Boolean) = context.settingsDataStore.edit { it[Keys.syncEnabled] = v }
     suspend fun setShareDownloadList(v: Boolean) = context.settingsDataStore.edit { it[Keys.shareDownloads] = v }
     suspend fun setManualPeers(v: List<String>) = context.settingsDataStore.edit { it[Keys.manualPeers] = v.toSet() }
+    suspend fun setEqualizer(v: EqSettings) = context.settingsDataStore.edit { it[Keys.equalizer] = v.encode() }
     suspend fun setStreamBitrate(v: Int) = context.settingsDataStore.edit { it[Keys.bitrate] = v }
     suspend fun setWifiOnlyDownloads(v: Boolean) = context.settingsDataStore.edit { it[Keys.wifiOnly] = v }
     suspend fun setDownloadsPaused(v: Boolean) = context.settingsDataStore.edit { it[Keys.downloadsPaused] = v }

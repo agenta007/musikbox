@@ -46,6 +46,7 @@ class CloudSyncServerTest {
         override suspend fun applyPrefs(changes: Map<String, PrefRecord>) { prefs = prefs + changes }
         override suspend fun nowPlaying(): NowPlayingInfo? = null
         override suspend fun pausePlayback() {}
+        override suspend fun remoteCommand(command: app.musikbox.sync.RemoteCommand) = Unit
         override fun log(message: String) { println("[$deviceName] $message") }
     }
 

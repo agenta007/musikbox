@@ -3,8 +3,11 @@ package app.musikbox.desktop
 import app.musikbox.data.remote.SubsonicClient
 import app.musikbox.desktop.data.Downloads
 import app.musikbox.desktop.sync.DesktopSyncHost
+import app.musikbox.audio.EqualizerController
+import app.musikbox.discover.DailyMixModel
 import app.musikbox.discover.DiscoverEngine
 import app.musikbox.discover.DiscoverModel
+import app.musikbox.sync.PlaybackGroup
 import app.musikbox.sync.SyncEngine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -19,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import java.io.File
 import java.util.concurrent.TimeUnit
 import app.musikbox.sync.CloudSync
 import kotlinx.coroutines.Job
@@ -45,13 +49,17 @@ class DesktopContainer {
     val streamCache = StreamCache(AppPaths.audioCacheDir, { settings.current.cacheSizeMb * 1024L * 1024L }, okHttp, scope)
     val library = Library(api, settings, downloads, scope)
     val mpv = Mpv()
-    val player = Player(mpv, api, settings, library, downloads, streamCache, scope)
+    val equalizer = EqualizerController(settings.current.equalizer, scope) { eq ->
+        withContext(Dispatchers.IO) { settings.update { it.copy(equalizer = eq) } }
+    }
+    val player = Player(mpv, api, settings, library, downloads, streamCache, scope, equalizer.state)
     val trackPcm = TrackPcm(api, downloads, streamCache, settings, scope)
     var mpris: Mpris? = null
         private set
     val screenLock = ScreenLock()
 
     val discover = DiscoverModel(DiscoverEngine(api), scope)
+    val dailyMixes = DailyMixModel(api, File(AppPaths.data, "daily-mixes.json"), scope, onPicked = { cloud.requestSync() })
     val lyrics = LyricsService(
         api, okHttp, FileLyricsCache(AppPaths.lyricsDir),
         lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
@@ -59,8 +67,10 @@ class DesktopContainer {
     )
     val syncHost = DesktopSyncHost(settings, library, player)
     val sync = SyncEngine(syncHost, okHttp, scope)
+    /** Devices following this one: the same music, kept in step. */
+    val group = PlaybackGroup(sync.sender, scope)
     /** Saved playlists / recents / download list through the server's private `.musikbox` playlist. */
-    val cloud = CloudSync(api, syncHost, scope, { settings.current.credentials?.username }, onKeyChanged = { sync.syncNow() })
+    val cloud: CloudSync = CloudSync(api, syncHost, scope, { settings.current.credentials?.username }, onKeyChanged = { sync.syncNow() }, mixGenres = dailyMixes)
     private var likedLoop: Job? = null
 
     fun startSync() {
@@ -101,7 +111,19 @@ class DesktopContainer {
         if (settings.current.syncEnabled) startSync()
         // Any local favourite / play / download-list change is pushed to the other devices.
         scope.launch { library.prefsFlow.drop(1).collect { sync.requestSync(); cloud.requestSync() } }
+        feedGroup()
         return playerResult
+    }
+
+    /** Keeps devices playing the same music in step (see [PlaybackGroup]). Fed only while one is linked. */
+    private fun feedGroup() {
+        scope.launch { player.state.collect { if (group.linked.value.isNotEmpty()) group.onLocal(syncHost.nowPlaying()) } }
+        scope.launch {
+            while (true) {
+                delay(1_000)  // catches seeks, which don't change the player state
+                if (group.linked.value.isNotEmpty()) group.onLocal(syncHost.nowPlaying())
+            }
+        }
     }
 
     fun shutdown() {
@@ -117,6 +139,7 @@ class DesktopContainer {
         withContext(Dispatchers.IO) { streamCache.clear() }
         library.clear()
         discover.clear()
+        dailyMixes.clear()
         settings.signOut()
     }
 }

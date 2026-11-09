@@ -99,6 +99,7 @@ fun DiscoverScreen(onBack: () -> Unit) {
                     Text("Couldn't build Discover: $it", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(20.dp))
                 }
             }
+            item { DailyMixes() }
             if (result != null) {
                 item {
                     MixHero(

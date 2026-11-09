@@ -119,6 +119,15 @@ fun SettingsScreen() {
                 }
             }
 
+            item {
+                val eq by c.equalizer.state.collectAsState()
+                var showEq by remember { mutableStateOf(false) }
+                SettingRow("Equalizer", if (eq.enabled) "On · ${eq.preset}" else "Off: music plays as it was recorded") {
+                    TextButton(onClick = { showEq = true }) { Text("Adjust") }
+                }
+                if (showEq) EqualizerDialog { showEq = false }
+            }
+
             item { Section("Lyrics") }
             item {
                 SettingRow(

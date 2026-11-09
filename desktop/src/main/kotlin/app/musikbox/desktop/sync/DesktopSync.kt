@@ -7,6 +7,7 @@ import app.musikbox.desktop.data.Song
 import app.musikbox.desktop.player.Player
 import app.musikbox.sync.NowPlayingInfo
 import app.musikbox.sync.PrefRecord
+import app.musikbox.sync.RemoteCommand
 import app.musikbox.sync.RemoteSong
 import app.musikbox.sync.SyncCrypto.hexToBytes
 import app.musikbox.sync.SyncEngine
@@ -70,6 +71,20 @@ class DesktopSyncHost(
     }
 
     override suspend fun pausePlayback() = withContext(Dispatchers.Main) { player.pause() }
+
+    override suspend fun remoteCommand(command: RemoteCommand) = withContext(Dispatchers.Main) {
+        when (command.action) {
+            RemoteCommand.PLAY -> player.play()
+            RemoteCommand.PAUSE -> player.pause()
+            RemoteCommand.NEXT -> player.next()
+            RemoteCommand.PREVIOUS -> player.previous()
+            RemoteCommand.SEEK -> command.positionMs?.let(player::seekTo)
+            RemoteCommand.LOAD -> command.queue?.takeIf { it.queue.isNotEmpty() }?.let { q ->
+                player.resumeQueue(q.queue.map { it.toSong() }, q.index, q.positionMs, q.playlistId, play = q.playing)
+            }
+        }
+        Unit
+    }
 
     override fun log(message: String) {
         System.err.println("[musikbox sync] $message")

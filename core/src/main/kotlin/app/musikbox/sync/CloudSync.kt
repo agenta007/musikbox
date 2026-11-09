@@ -22,6 +22,13 @@ import java.security.SecureRandom
 /** Name of the private playlist whose comment holds the account's musikbox state. Hidden in the apps. */
 const val SYNC_PLAYLIST_NAME = ".musikbox"
 
+/** A setting synced as one last-writer-wins value: here, the genres picked for the daily mixes. */
+interface SyncedMixGenres {
+    val mixGenres: List<String>
+    val mixGenresAt: Long
+    fun adoptMixGenres(genres: List<String>, at: Long)
+}
+
 /** The JSON stored in the `.musikbox` playlist's comment. */
 @Serializable
 data class CloudDoc(
@@ -29,6 +36,9 @@ data class CloudDoc(
     /** Account-wide key for device-to-device requests (hex). */
     val key: String? = null,
     val prefs: Map<String, PrefRecord> = emptyMap(),
+    /** The genres picked for the daily mixes, and when they were picked (last writer wins). */
+    val mixGenres: List<String> = emptyList(),
+    val mixGenresAt: Long = 0,
     val updatedAt: Long = 0,
     val updatedBy: String? = null,
 )
@@ -56,6 +66,7 @@ class CloudSync(
     /** Username of the signed-in account; only its own `.musikbox` playlist is used. */
     private val username: () -> String?,
     private val onKeyChanged: () -> Unit = {},
+    private val mixGenres: SyncedMixGenres? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
     private val mutex = Mutex()
@@ -118,7 +129,13 @@ class CloudSync(
             }
             // Push: merge our (outgoing) view into the doc; unshared download-list fields stay as others left them.
             val merged = mergeInto(doc.prefs, outgoing(localPrefs + changes, share))
-            val next = doc.copy(prefs = merged)
+            var next = doc.copy(prefs = merged)
+            mixGenres?.let { local ->
+                when {
+                    doc.mixGenresAt > local.mixGenresAt -> local.adoptMixGenres(doc.mixGenres, doc.mixGenresAt)
+                    doc.mixGenresAt < local.mixGenresAt -> next = next.copy(mixGenres = local.mixGenres, mixGenresAt = local.mixGenresAt)
+                }
+            }
             // Write only when the content (ignoring who/when) differs from what the server holds.
             if (onServer == null || mine.size > 1 || next.copy(updatedAt = 0, updatedBy = null) != onServer.copy(updatedAt = 0, updatedBy = null)) {
                 val text = json.encodeToString(
@@ -160,6 +177,8 @@ class CloudSync(
         fun mergeDocs(a: CloudDoc, b: CloudDoc): CloudDoc = a.copy(
             key = a.key ?: b.key,
             prefs = mergeInto(a.prefs, b.prefs),
+            mixGenres = if (b.mixGenresAt > a.mixGenresAt) b.mixGenres else a.mixGenres,
+            mixGenresAt = maxOf(a.mixGenresAt, b.mixGenresAt),
         )
     }
 }

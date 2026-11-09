@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Storage
@@ -90,6 +91,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
     }
 
     var pickBitrate by remember { mutableStateOf(false) }
+    var showEqualizer by remember { mutableStateOf(false) }
     var pickCache by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var editLyricsServer by remember { mutableStateOf(false) }
@@ -184,6 +186,14 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
                 ) { pickBitrate = true }
             }
 
+            item {
+                val eq = container.equalizer.state.collectAsStateWithLifecycle().value
+                Setting(
+                    Icons.Rounded.Equalizer, "Equalizer",
+                    if (eq.enabled) "On · ${eq.preset}" else "Off",
+                ) { showEqualizer = true }
+            }
+
             item { Section("Lyrics") }
             item {
                 Toggle(
@@ -253,6 +263,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
         }
     }
 
+    if (showEqualizer) app.musikbox.ui.player.EqualizerSheet(onDismiss = { showEqualizer = false })
     if (pickBitrate) {
         ChoiceDialog("Streaming quality", bitrates, settings.streamBitrate, onDismiss = { pickBitrate = false }) {
             pickBitrate = false

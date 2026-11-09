@@ -133,6 +133,8 @@ class SubsonicClient(
         call("getRandomSongs", buildList { add("size" to "$size"); genre?.let { add("genre" to it) } })
             .randomSongs?.song.orEmpty()
 
+    suspend fun getGenres(): List<GenreDto> = call("getGenres").genres?.genre.orEmpty()
+
     /** Similar songs via the server's agents (Deezer / Last.fm / ListenBrainz / AudioMuse). May be empty. */
     suspend fun getSimilarSongs2(id: String, count: Int = 30): List<SongDto> =
         call("getSimilarSongs2", listOf("id" to id, "count" to "$count")).similarSongs2?.song.orEmpty()

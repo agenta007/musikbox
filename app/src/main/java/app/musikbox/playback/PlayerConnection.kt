@@ -185,14 +185,21 @@ class PlayerConnection(
 
     fun pause() = withController { it.pause() }
 
+    fun play() = withController { c ->
+        if (c.mediaItemCount == 0) return@withController
+        if (c.playbackState == Player.STATE_IDLE) c.prepare()
+        if (c.playbackState == Player.STATE_ENDED) c.seekToDefaultPosition(0)
+        c.play()
+    }
+
     /** Device handoff: take over another device's queue at its position. */
-    fun resumeQueue(songs: List<SongEntity>, index: Int, positionMs: Long, playlistId: String?) {
+    fun resumeQueue(songs: List<SongEntity>, index: Int, positionMs: Long, playlistId: String?, play: Boolean = true) {
         if (songs.isEmpty()) return
         val items = songs.map { it.toMediaItem(library.coverUrl(it.coverArt), playlistId) }
         withController { c ->
             c.setMediaItems(items, index.coerceIn(0, items.lastIndex), positionMs)
             c.prepare()
-            c.play()
+            if (play) c.play() else c.pause()
         }
     }
 

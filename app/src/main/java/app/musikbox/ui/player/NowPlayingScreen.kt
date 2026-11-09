@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,6 +87,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -131,6 +134,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
 
     var showQueue by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
+    var showEqualizer by remember { mutableStateOf(false) }
+    var showDevices by remember { mutableStateOf(false) }
+    val linkedDevices by container.group.linked.collectAsStateWithLifecycle()
+    val eq by container.equalizer.state.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
     var showLyrics by rememberSaveable { mutableStateOf(false) }
 
@@ -195,8 +202,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
                         Text(sourceName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                IconButton(onClick = { showQueue = true }, modifier = Modifier.offset(x = 12.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.QueueMusic, "Queue")
+                IconButton(onClick = { showDevices = true }, modifier = Modifier.offset(x = 12.dp)) {
+                    Icon(
+                        Icons.Rounded.Devices,
+                        if (linkedDevices.isEmpty()) "Devices" else "Devices: playing on ${linkedDevices.size + 1}",
+                        tint = if (linkedDevices.isNotEmpty()) tint else LocalContentColor.current,
+                    )
                 }
             }
 
@@ -372,6 +383,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { showEqualizer = true }) {
+                    Icon(
+                        Icons.Rounded.Equalizer, "Equalizer",
+                        tint = if (eq.active) tint else Color.White.copy(alpha = 0.85f),
+                    )
+                }
                 IconButton(onClick = { showLyrics = !showLyrics }) {
                     Icon(
                         Icons.Rounded.Lyrics, if (showLyrics) "Hide lyrics" else "Lyrics",
@@ -390,6 +407,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
 
     if (showQueue) QueueSheet(onDismiss = { showQueue = false })
     if (showSleep) SleepTimerSheet(onDismiss = { showSleep = false })
+    if (showEqualizer) EqualizerSheet(onDismiss = { showEqualizer = false })
+    if (showDevices) DevicesSheet(onDismiss = { showDevices = false })
     if (showAdd) AddToPlaylistSheet(listOf(storedSong ?: song)) { showAdd = false }
 }
 

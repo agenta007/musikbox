@@ -68,6 +68,28 @@ data class NowPlayingInfo(
     val current: RemoteSong? get() = queue.getOrNull(index)
 }
 
+/** A command from another of the user's devices: the remote control in the devices menu. */
+@Serializable
+data class RemoteCommand(
+    val action: String,
+    /** For [SEEK]: where to. */
+    val positionMs: Long? = null,
+    /** For [LOAD]: the queue to play, where in it, and whether to start playing. */
+    val queue: NowPlayingInfo? = null,
+    /** Who sent it, for the log. */
+    val from: String? = null,
+) {
+    companion object {
+        const val PLAY = "play"
+        const val PAUSE = "pause"
+        const val NEXT = "next"
+        const val PREVIOUS = "previous"
+        const val SEEK = "seek"
+        const val LOAD = "load"
+        val ACTIONS = setOf(PLAY, PAUSE, NEXT, PREVIOUS, SEEK, LOAD)
+    }
+}
+
 /** UDP discovery beacon. */
 @Serializable
 data class Beacon(

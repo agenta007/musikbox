@@ -61,6 +61,20 @@ class AndroidSyncHost(
 
     override suspend fun pausePlayback() = withContext(Dispatchers.Main) { player.pause() }
 
+    override suspend fun remoteCommand(command: RemoteCommand) = withContext(Dispatchers.Main) {
+        when (command.action) {
+            RemoteCommand.PLAY -> player.play()
+            RemoteCommand.PAUSE -> player.pause()
+            RemoteCommand.NEXT -> player.next()
+            RemoteCommand.PREVIOUS -> player.previous()
+            RemoteCommand.SEEK -> command.positionMs?.let(player::seekTo)
+            RemoteCommand.LOAD -> command.queue?.takeIf { it.queue.isNotEmpty() }?.let { q ->
+                player.resumeQueue(q.queue.map { it.toEntity() }, q.index, q.positionMs, q.playlistId, play = q.playing)
+            }
+        }
+        Unit
+    }
+
     override fun log(message: String) = log.i("Sync: $message")
 
     /** Wi-Fi drivers drop broadcast/multicast frames unless an app holds this lock. */

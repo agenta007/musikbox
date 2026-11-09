@@ -1,5 +1,6 @@
 package app.musikbox.ui.playlist
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,34 +27,42 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.musikbox.data.matchesSearch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.musikbox.ui.LocalAppContainer
 import app.musikbox.ui.LocalBottomInset
@@ -96,6 +105,13 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmRemoveDownloads by remember { mutableStateOf(false) }
     var addAll by remember { mutableStateOf(false) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    // Original positions are kept: the numbers stay the playlist's, and a tap plays the playlist from there.
+    val shown = remember(state.tracks, query) {
+        state.tracks.withIndex().filter { (_, t) -> matchesSearch(query, t.song.title, t.song.artist, t.song.album) }
+    }
+    BackHandler(enabled = searching) { searching = false; query = "" }
 
     val barAlpha by remember {
         derivedStateOf {
@@ -203,6 +219,13 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
                                 onDelete = { confirmDelete = true },
                             )
                             Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { searching = !searching; if (!searching) query = "" }, enabled = state.tracks.isNotEmpty()) {
+                                Icon(
+                                    Icons.Rounded.Search, "Search in playlist",
+                                    tint = if (searching) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(26.dp),
+                                )
+                            }
                             IconButton(onClick = { vm.play(shuffle = true) }, enabled = state.tracks.isNotEmpty()) {
                                 Icon(
                                     Icons.Rounded.Shuffle, "Shuffle play",
@@ -246,7 +269,34 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
                 }
             }
 
-            itemsIndexed(state.tracks, key = { _, t -> t.position }) { i, track ->
+            if (searching) {
+                item(key = "search") {
+                    val focus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { focus.requestFocus() }
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        singleLine = true,
+                        placeholder = { Text("Search in this playlist") },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                        trailingIcon = {
+                            IconButton(onClick = { searching = false; query = "" }) { Icon(Icons.Rounded.Close, "Close search") }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
+                    )
+                    if (query.isNotBlank()) {
+                        Text(
+                            if (shown.isEmpty()) "No songs match “${query.trim()}”" else songsLabel(shown.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+
+            items(shown, key = { it.value.position }) { (i, track) ->
                 val actions = if (state.isLiked) {
                     // In the liked list "remove" means un-star.
                     baseActions.copy(onRemove = { song -> baseActions.onToggleStar(song) }, removeLabel = "Remove from Liked songs")

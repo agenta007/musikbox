@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
@@ -61,6 +61,7 @@ import app.musikbox.data.DownloadRules
 import app.musikbox.data.LIKED_PLAYLIST_ID
 import app.musikbox.data.autoReason
 import app.musikbox.data.inDownloadList
+import app.musikbox.data.matchesSearch
 
 @Composable
 fun PlaylistScreen(id: String) {
@@ -99,6 +100,10 @@ fun PlaylistScreen(id: String) {
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmRemoveDl by remember { mutableStateOf(false) }
     var addAll by remember { mutableStateOf(false) }
+    var query by remember(id) { mutableStateOf("") }
+    // Original positions are kept: the numbers stay the playlist's, a click plays the playlist from
+    // there, and "Remove from this playlist" removes the right entry.
+    val shown = remember(tracks, query) { tracks.withIndex().filter { (_, s) -> matchesSearch(query, s.title, s.artist, s.album) } }
 
     val songMenu = rememberSongMenu()
 
@@ -177,6 +182,15 @@ fun PlaylistScreen(id: String) {
                                     }
                                 },
                             )
+                            Spacer(Modifier.weight(1f))
+                            if (tracks.isNotEmpty()) SearchField(query, { query = it }, "Search in playlist", Modifier.width(260.dp))
+                        }
+                        if (query.isNotBlank()) {
+                            Text(
+                                if (shown.isEmpty()) "No songs match “${query.trim()}”" else "${songsLabel(shown.size)} of ${tracks.size}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
                         }
                     }
                 }
@@ -190,7 +204,7 @@ fun PlaylistScreen(id: String) {
                     )
                 }
             }
-            itemsIndexed(tracks, key = { i, s -> "$i-${s.id}" }) { i, song ->
+            items(shown, key = { (i, s) -> "$i-${s.id}" }) { (i, song) ->
                 TrackRow(
                     song = song,
                     index = i + 1,

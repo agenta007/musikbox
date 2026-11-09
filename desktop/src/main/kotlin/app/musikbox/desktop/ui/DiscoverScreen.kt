@@ -102,6 +102,8 @@ fun DiscoverScreen() {
             ui.error?.let { Text("Couldn't build Discover: $it", color = MaterialTheme.colorScheme.error) }
         }
 
+        item { DailyMixes() }
+
         if (result != null) {
             item {
                 MixHero(

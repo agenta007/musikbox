@@ -1,5 +1,6 @@
 package app.musikbox.desktop.data
 
+import app.musikbox.audio.EqSettings
 import app.musikbox.data.settings.Credentials
 import app.musikbox.desktop.AppPaths
 import app.musikbox.desktop.JsonFile
@@ -41,6 +42,8 @@ data class DesktopSettings(
     val syncEnabled: Boolean = true,
     val shareDownloadList: Boolean = false,
     val manualPeers: List<String> = emptyList(),
+    /** This computer's equalizer. Not synced: the right sound depends on the speakers or headphones. */
+    val equalizer: EqSettings = EqSettings(),
 ) {
     val credentials: Credentials?
         get() = if (serverUrl != null && username != null && salt != null && token != null) {

@@ -41,7 +41,7 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         val container = (application as MusikboxApp).container
 
-        // Route PCM through a tee so the visualizer sees exactly what plays (no mic permission).
+        // The equalizer first, then a tee, so the visualizer sees exactly what plays (no mic permission).
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
@@ -50,7 +50,9 @@ class PlaybackService : MediaSessionService() {
             ): AudioSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                .setAudioProcessors(arrayOf(TeeAudioProcessor(container.visualizerTap)))
+                .setAudioProcessors(
+                    arrayOf(EqualizerProcessor { container.equalizer.state.value }, TeeAudioProcessor(container.visualizerTap)),
+                )
                 .build()
         }
 

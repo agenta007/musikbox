@@ -1,5 +1,7 @@
 package app.musikbox.desktop.player
 
+import app.musikbox.audio.EqSettings
+import app.musikbox.audio.mpvAudioFilter
 import app.musikbox.data.remote.SubsonicClient
 import app.musikbox.desktop.AppPaths
 import app.musikbox.desktop.JsonFile
@@ -14,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.math.min
@@ -69,6 +72,8 @@ class Player(
     private val downloads: Downloads,
     private val cache: StreamCache,
     private val scope: CoroutineScope,
+    /** The equalizer. mpv gets it as an audio filter, at start and on every change. */
+    private val equalizer: StateFlow<EqSettings> = MutableStateFlow(EqSettings()),
 ) {
     private var items = listOf<QItem>()
     private var order = listOf<Long>()
@@ -107,13 +112,17 @@ class Player(
     var onTrackChanged: (() -> Unit)? = null
 
     fun start(): Result<Unit> {
-        val r = mpv.start(settings.current.volume)
+        val r = startMpv()
         if (r.isFailure) error = r.exceptionOrNull()?.message
         scope.launch { mpv.events.collect(::onEvent) }
+        // An empty filter list turns the equalizer off; mpv applies changes without a gap.
+        scope.launch { equalizer.drop(1).collect { if (mpv.isRunning) mpv.setProperty("af", mpvAudioFilter(it) ?: "") } }
         restore()
         publish()
         return r
     }
+
+    private fun startMpv() = mpv.start(settings.current.volume, mpvAudioFilter(equalizer.value))
 
     // ---------------------------------------------------------------- mpv events
 
@@ -203,7 +212,7 @@ class Player(
 
     private fun load(item: QItem, play: Boolean, startMs: Long = 0L) {
         if (!mpv.isRunning) {
-            mpv.start(settings.current.volume).onFailure { error = it.message; publish(); return }
+            startMpv().onFailure { error = it.message; publish(); return }
         }
         val song = item.song
         val br = settings.current.streamBitrate
@@ -258,7 +267,7 @@ class Player(
     }
 
     /** Device handoff: take over another device's queue at its position. */
-    fun resumeQueue(songs: List<Song>, index: Int, positionMs: Long, playlistId: String?) {
+    fun resumeQueue(songs: List<Song>, index: Int, positionMs: Long, playlistId: String?, play: Boolean = true) {
         if (songs.isEmpty()) return
         scrobbleLeaving(auto = false)
         items = newItems(songs)
@@ -267,7 +276,7 @@ class Player(
         pos = order.indexOf(items[start].uid)
         sourcePlaylistId = playlistId
         consecutiveErrors = 0
-        load(items[start], play = true, startMs = positionMs)
+        load(items[start], play = play, startMs = positionMs)
     }
 
     fun playPlaylist(id: String, shuffle: Boolean? = null, startIndex: Int = 0) =

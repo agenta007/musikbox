@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
@@ -149,6 +151,14 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
             // Extras
             Row(Modifier.weight(0.3f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 SleepButton(tint)
+                val eq by c.equalizer.state.collectAsState()
+                var showEq by remember { mutableStateOf(false) }
+                Toggle(Icons.Rounded.Equalizer, if (eq.active) "Equalizer: ${eq.preset}" else "Equalizer", eq.active, tint) { showEq = true }
+                if (showEq) EqualizerDialog { showEq = false }
+                val linkedDevices by c.group.linked.collectAsState()
+                var showDevices by remember { mutableStateOf(false) }
+                Toggle(Icons.Rounded.Devices, if (linkedDevices.isEmpty()) "Devices" else "Devices: playing on ${linkedDevices.size + 1}", linkedDevices.isNotEmpty(), tint) { showDevices = true }
+                if (showDevices) DevicesDialog { showDevices = false }
                 Toggle(Icons.AutoMirrored.Rounded.QueueMusic, "Queue", queueOpen, tint, onToggleQueue)
                 val muted = state.volume == 0
                 var lastVolume by remember { mutableStateOf(80) }

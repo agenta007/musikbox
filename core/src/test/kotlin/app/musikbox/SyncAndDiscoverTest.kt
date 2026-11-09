@@ -10,6 +10,7 @@ import app.musikbox.discover.rankMix
 import app.musikbox.sync.NowPlayingInfo
 import app.musikbox.sync.PeerState
 import app.musikbox.sync.PrefRecord
+import app.musikbox.sync.RemoteCommand
 import app.musikbox.sync.RemoteSong
 import app.musikbox.sync.SyncCrypto
 import app.musikbox.sync.SyncEngine
@@ -104,6 +105,8 @@ class SyncAndDiscoverTest {
         override suspend fun applyPrefs(changes: Map<String, PrefRecord>) { prefs = prefs + changes }
         override suspend fun nowPlaying() = np
         override suspend fun pausePlayback() { paused = true }
+        val commands = mutableListOf<RemoteCommand>()
+        override suspend fun remoteCommand(command: RemoteCommand) { synchronized(commands) { commands += command } }
         override fun log(message: String) { synchronized(logs) { logs += message } }
     }
 

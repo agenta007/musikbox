@@ -91,7 +91,7 @@ class Mpv {
 
     val isRunning get() = process?.isAlive == true && channel?.isOpen == true
 
-    fun start(volume: Int): Result<Unit> = runCatching {
+    fun start(volume: Int, audioFilter: String? = null): Result<Unit> = runCatching {
         if (isRunning) return@runCatching
         val exe = findExecutable("mpv") ?: throw IOException(
             if (AppPaths.isWindows) "mpv is not installed. Install it (e.g. `scoop install extras/mpv`) and make sure mpv.exe is on PATH, or set MUSIKBOX_MPV to its full path."
@@ -110,6 +110,7 @@ class Mpv {
             "--cache=yes", "--demuxer-max-bytes=64MiB", "--demuxer-readahead-secs=60",
             "--audio-client-name=musikbox", "--title=musikbox",
         )
+        audioFilter?.let { args += "--af=$it" }
         if (!AppPaths.isWindows) {
             // mpv must never outlive the app, even if the JVM is SIGKILLed or crashes:
             // a tiny Lua timer inside mpv quits it once our PID is gone. (Windows has no /proc;
