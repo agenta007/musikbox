@@ -224,6 +224,14 @@ fun rememberSongActions(onRemove: ((SongEntity) -> Unit)? = null): SongActions {
                     container.library.toggleStar(song).onFailure { snackbar.showSnackbar("Couldn't reach the server") }
                 }
             },
+            onRadio = { song ->
+                container.scope.launch {
+                    val starting = launch { snackbar.showSnackbar("Starting radio from ${song.title}…") }
+                    val message = container.startRadio(song)
+                    starting.cancel()
+                    snackbar.showSnackbar(message)
+                }
+            },
             onRemove = onRemove,
         )
     }

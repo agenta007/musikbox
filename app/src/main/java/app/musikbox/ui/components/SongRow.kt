@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -46,6 +47,8 @@ data class SongActions(
     val onEnqueue: (SongEntity) -> Unit,
     val onAddToPlaylist: (SongEntity) -> Unit,
     val onToggleStar: (SongEntity) -> Unit,
+    /** Play the song, then its radio. */
+    val onRadio: ((SongEntity) -> Unit)? = null,
     /** Non-null only where the song can be removed (e.g. an editable playlist). */
     val onRemove: ((SongEntity) -> Unit)? = null,
     val removeLabel: String = "Remove from playlist",
@@ -137,6 +140,7 @@ fun SongMenu(song: SongEntity, actions: SongActions) {
         ) {
             MenuItem("Play next", Icons.Rounded.SkipNext) { open = false; actions.onPlayNext(song) }
             MenuItem("Add to queue", Icons.AutoMirrored.Rounded.QueueMusic) { open = false; actions.onEnqueue(song) }
+            actions.onRadio?.let { radio -> MenuItem("Start radio", Icons.Rounded.Radio) { open = false; radio(song) } }
             MenuItem("Add to playlist…", Icons.AutoMirrored.Rounded.PlaylistAdd) { open = false; actions.onAddToPlaylist(song) }
             MenuItem(
                 if (song.starred) "Unstar" else "Star",

@@ -17,6 +17,9 @@ import app.musikbox.discover.DiscoverEngine
 import app.musikbox.discover.DiscoverModel
 import app.musikbox.lyrics.FileLyricsCache
 import app.musikbox.lyrics.LyricsService
+import app.musikbox.radio.RadioService
+import app.musikbox.data.toEntity
+import app.musikbox.data.local.SongEntity
 import app.musikbox.sync.AndroidSyncHost
 import app.musikbox.sync.PlaybackGroup
 import app.musikbox.sync.SyncEngine
@@ -107,6 +110,24 @@ class AppContainer(context: Context) {
         lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
         userAgent = "musikbox/${BuildConfig.VERSION_NAME} (https://github.com/agenta007/musikbox)",
     )
+
+    /** Song radio: Spotify's through scout when it's set up, else the server's similar songs. */
+    val radio = RadioService(okHttp, api, { settings.current.credentials }, { settings.current.scoutUrl })
+
+    /**
+     * Play [seed], then its radio. With [fromPositionMs], the seed is the song playing now and
+     * carries on from there. Returns the line to show.
+     */
+    suspend fun startRadio(seed: SongEntity, fromPositionMs: Long? = null): String =
+        radio.radio(seed.id, seed.artist, seed.title, seed.durationSec).fold(
+            onSuccess = { r ->
+                val queue = listOf(seed) + r.songs.map { it.toEntity() }
+                if (fromPositionMs != null) player.resumeQueue(queue, 0, fromPositionMs, null)
+                else player.playSongs(queue, 0, shuffle = false)
+                r.message
+            },
+            onFailure = { it.message ?: "Couldn't start a radio" },
+        )
 
     val syncHost = AndroidSyncHost(appContext, settings, library, player, log)
     val sync = SyncEngine(syncHost, okHttp, scope)

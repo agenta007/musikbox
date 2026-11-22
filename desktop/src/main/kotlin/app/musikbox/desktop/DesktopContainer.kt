@@ -32,6 +32,9 @@ import app.musikbox.desktop.player.ScreenLock
 import app.musikbox.desktop.data.lyricsQuery
 import app.musikbox.lyrics.FileLyricsCache
 import app.musikbox.lyrics.LyricsService
+import app.musikbox.radio.RadioService
+import app.musikbox.desktop.data.Song
+import app.musikbox.desktop.data.toSong
 
 /** Hand-rolled DI for the desktop app; mirrors the Android AppContainer. */
 class DesktopContainer {
@@ -65,6 +68,24 @@ class DesktopContainer {
         lrclibUrl = { settings.current.takeIf { it.lyricsOnline }?.lyricsServer },
         userAgent = "musikbox/${AppPaths.version} (https://github.com/agenta007/musikbox)",
     )
+    /** Song radio: Spotify's through scout when it's set up, else the server's similar songs. */
+    val radio = RadioService(okHttp, api, { settings.current.credentials }, { settings.current.scoutUrl })
+
+    /**
+     * Play [seed], then its radio. With [fromPositionMs], the seed is the song playing now and
+     * carries on from there. Returns the line to show.
+     */
+    suspend fun startRadio(seed: Song, fromPositionMs: Long? = null): String =
+        radio.radio(seed.id, seed.artist, seed.title, seed.durationSec).fold(
+            onSuccess = { r ->
+                val queue = listOf(seed) + r.songs.map { it.toSong() }
+                if (fromPositionMs != null) player.resumeQueue(queue, 0, fromPositionMs, null)
+                else player.playSongs(queue, 0, shuffle = false)
+                r.message
+            },
+            onFailure = { it.message ?: "Couldn't start a radio" },
+        )
+
     val syncHost = DesktopSyncHost(settings, library, player)
     val sync = SyncEngine(syncHost, okHttp, scope)
     /** Devices following this one: the same music, kept in step. */

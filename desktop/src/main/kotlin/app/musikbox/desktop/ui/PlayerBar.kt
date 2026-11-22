@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.OpenInFull
@@ -155,6 +156,10 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                 var showEq by remember { mutableStateOf(false) }
                 Toggle(Icons.Rounded.Equalizer, if (eq.active) "Equalizer: ${eq.preset}" else "Equalizer", eq.active, tint) { showEq = true }
                 if (showEq) EqualizerDialog { showEq = false }
+                val snackbar = LocalSnackbar.current
+                Toggle(Icons.Rounded.Radio, "Start radio from this song", false, tint) {
+                    song?.let { startRadio(c, snackbar, it, player.position.value) }
+                }
                 val linkedDevices by c.group.linked.collectAsState()
                 var showDevices by remember { mutableStateOf(false) }
                 Toggle(Icons.Rounded.Devices, if (linkedDevices.isEmpty()) "Devices" else "Devices: playing on ${linkedDevices.size + 1}", linkedDevices.isNotEmpty(), tint) { showDevices = true }

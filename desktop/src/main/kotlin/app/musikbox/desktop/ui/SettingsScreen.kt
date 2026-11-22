@@ -128,6 +128,22 @@ fun SettingsScreen() {
                 if (showEq) EqualizerDialog { showEq = false }
             }
 
+            item { Section("Radio") }
+            item {
+                var url by remember(settings.scoutUrl) { mutableStateOf(settings.scoutUrl) }
+                SettingRow(
+                    "Scout address",
+                    "Start radio plays Spotify's radio for a song, with the songs your library has, when scout runs on your server. " +
+                        "Scout checks your Navidrome login and doesn't keep it. Empty: similar songs from your server.",
+                ) {
+                    OutlinedTextField(url, { url = it }, singleLine = true, placeholder = { Text("https://music.example.com/scout") }, modifier = Modifier.width(280.dp))
+                    TextButton(
+                        onClick = { c.settings.update { it.copy(scoutUrl = url.trim()) } },
+                        enabled = url.trim() != settings.scoutUrl,
+                    ) { Text("Save") }
+                }
+            }
+
             item { Section("Lyrics") }
             item {
                 SettingRow(

@@ -83,7 +83,7 @@ fun Sidebar(modifier: Modifier = Modifier) {
     val menu = rememberPlaylistMenu()
     var query by remember { mutableStateOf("") }
     val q = query.trim()
-    val shown = if (q.isEmpty()) playlists else playlists.filter { it.name.contains(q, ignoreCase = true) }
+    val shown = (if (q.isEmpty()) playlists else playlists.filter { it.name.contains(q, ignoreCase = true) }).sortedLike(settings)
     val listState = rememberLazyListState()
 
     Column(modifier.background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
@@ -143,7 +143,12 @@ fun Sidebar(modifier: Modifier = Modifier) {
                     item { SectionLabel("Saved") }
                     items(saved, key = { "f" + it.id }) { p -> SidebarPlaylist(p, nav, player.sourcePlaylistId == p.id, player.isPlaying, menu, onDisk(p)) }
                 }
-                item { SectionLabel(if (q.isEmpty()) "Playlists" else "${shown.size} matching") }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { SectionLabel(if (q.isEmpty()) "Playlists" else "${shown.size} matching") }
+                        PlaylistSortMenu(compact = true, modifier = Modifier.padding(top = 8.dp, end = 12.dp))
+                    }
+                }
                 items(shown, key = { "p" + it.id }) { p -> SidebarPlaylist(p, nav, player.sourcePlaylistId == p.id, player.isPlaying, menu, onDisk(p)) }
                 if (q.isNotEmpty()) {
                     item {

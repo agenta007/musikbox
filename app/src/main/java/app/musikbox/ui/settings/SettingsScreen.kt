@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material3.OutlinedTextField
 import app.musikbox.lyrics.LyricsService
 import androidx.compose.material3.Icon
@@ -95,6 +96,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
     var pickCache by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var editLyricsServer by remember { mutableStateOf(false) }
+    var editScout by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -192,6 +194,14 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
                     Icons.Rounded.Equalizer, "Equalizer",
                     if (eq.enabled) "On · ${eq.preset}" else "Off",
                 ) { showEqualizer = true }
+            }
+
+            item { Section("Radio") }
+            item {
+                Setting(
+                    Icons.Rounded.Radio, "Scout address",
+                    settings.scoutUrl.ifBlank { "Not set: radios are similar songs from your server" },
+                ) { editScout = true }
             }
 
             item { Section("Lyrics") }
@@ -306,6 +316,36 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit, onOpenDownloads:
             dismissButton = {
                 TextButton(onClick = { url = LyricsService.DEFAULT_LRCLIB }) { Text("Reset") }
             },
+        )
+    }
+    if (editScout) {
+        var url by remember { mutableStateOf(settings.scoutUrl) }
+        AlertDialog(
+            onDismissRequest = { editScout = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = { Text("Scout address") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        url, { url = it }, singleLine = true, label = { Text("Address") },
+                        placeholder = { Text("https://music.example.com/scout") }, modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Start radio plays Spotify's radio for a song, with the songs your library has, when scout runs on your server. " +
+                            "Scout checks your Navidrome login and doesn't keep it. Leave it empty for similar songs from your server.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    editScout = false
+                    scope.launch { container.settings.setScoutUrl(url) }
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { url = "" }) { Text("Clear") } },
         )
     }
     if (confirmSignOut) {

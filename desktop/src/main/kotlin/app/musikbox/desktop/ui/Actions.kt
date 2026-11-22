@@ -70,6 +70,7 @@ fun rememberSongMenu(onRemove: ((Song) -> Unit)? = null): SongMenu {
                     c.player.enqueue(song)
                     c.scope.launch { snackbar.showSnackbar("Added to queue") }
                 })
+                add(ContextMenuItem("Start radio") { startRadio(c, snackbar, song) })
                 add(ContextMenuItem("Add to playlist…") { addTarget = listOf(song) })
                 add(ContextMenuItem(if (song.starred) "Unstar" else "Star") {
                     c.scope.launch { c.library.toggleStar(song).onFailure { snackbar.showSnackbar("Couldn't reach the server") } }
@@ -77,6 +78,16 @@ fun rememberSongMenu(onRemove: ((Song) -> Unit)? = null): SongMenu {
                 onRemove?.let { remove -> add(ContextMenuItem("Remove from this playlist") { remove(song) }) }
             }
         }
+    }
+}
+
+/** Play [song], then its radio, saying how it went. [fromPositionMs]: it's the song playing now. */
+fun startRadio(c: app.musikbox.desktop.DesktopContainer, snackbar: androidx.compose.material3.SnackbarHostState, song: Song, fromPositionMs: Long? = null) {
+    c.scope.launch {
+        val starting = launch { snackbar.showSnackbar("Starting radio from ${song.title}…") }
+        val message = c.startRadio(song, fromPositionMs)
+        starting.cancel()
+        snackbar.showSnackbar(message)
     }
 }
 

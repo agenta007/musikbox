@@ -26,6 +26,11 @@ data class DesktopSettings(
     /** Ask an LRCLIB server when Navidrome has no lyrics for a song. Off: nothing leaves the user's server. */
     val lyricsOnline: Boolean = false,
     val lyricsServer: String = LyricsService.DEFAULT_LRCLIB,
+    /** Scout on the user's server, for song radio from Spotify. Empty: the server's similar songs. */
+    val scoutUrl: String = "",
+    /** How the Home playlist list is ordered: a [app.musikbox.data.PlaylistSort] name. */
+    val playlistSort: String = "Name",
+    val playlistSortReversed: Boolean = false,
     /** Now Playing shows lyrics instead of the queue. */
     val showLyrics: Boolean = false,
     val pureBlack: Boolean = false,

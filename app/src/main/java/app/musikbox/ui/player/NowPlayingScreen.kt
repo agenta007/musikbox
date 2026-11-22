@@ -88,6 +88,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Lyrics
@@ -201,6 +202,19 @@ fun NowPlayingScreen(onCollapse: () -> Unit, onOpenPlaylist: (String) -> Unit) {
                     if (sourceName != null) {
                         Text(sourceName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                }
+                IconButton(
+                    onClick = {
+                        container.scope.launch {
+                            val starting = launch { snackbar.showSnackbar("Starting radio from ${song.title}…") }
+                            val message = container.startRadio(song, fromPositionMs = player.positionMs)
+                            starting.cancel()
+                            snackbar.showSnackbar(message)
+                        }
+                    },
+                    modifier = Modifier.offset(x = 12.dp),
+                ) {
+                    Icon(Icons.Rounded.Radio, "Start radio from this song")
                 }
                 IconButton(onClick = { showDevices = true }, modifier = Modifier.offset(x = 12.dp)) {
                     Icon(

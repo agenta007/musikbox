@@ -40,7 +40,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Pause
@@ -80,7 +79,6 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.DownloadDone
 
 private enum class Filter(val label: String) { All("All"), Mine("Mine"), Offline("Offline") }
-private enum class Sort(val label: String) { Name("Name"), Updated("Recently updated"), Size("Most songs") }
 
 @Composable
 fun HomeScreen() {
@@ -95,7 +93,6 @@ fun HomeScreen() {
     val menu = rememberPlaylistMenu()
 
     var filter by remember { mutableStateOf(Filter.All) }
-    var sort by remember { mutableStateOf(Sort.Name) }
     var query by remember { mutableStateOf("") }
     val q = query.trim()
     val shown = all
@@ -107,13 +104,7 @@ fun HomeScreen() {
                 Filter.Offline -> c.library.inList(it.id)
             }
         }
-        .let { list ->
-            when (sort) {
-                Sort.Name -> list
-                Sort.Updated -> list.sortedByDescending { it.playlist.changed ?: "" }
-                Sort.Size -> list.sortedByDescending { it.playlist.songCount }
-            }
-        }
+        .sortedLike(settings)
     val gridState = rememberLazyGridState()
     val play: (PlaylistItem) -> Unit = { p ->
         if (player.sourcePlaylistId == p.id) c.player.togglePlay() else c.player.playPlaylist(p.id)
@@ -199,7 +190,7 @@ fun HomeScreen() {
                             Text("Playlists", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
                             SearchField(query, { query = it }, "Search playlists", Modifier.width(280.dp))
                             Spacer(Modifier.width(8.dp))
-                            SortMenu(sort) { sort = it }
+                            PlaylistSortMenu()
                         }
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,21 +267,6 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, 
             )
         }
         if (value.isNotEmpty()) IconButton(onClick = { onChange("") }, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.Close, "Clear", Modifier.size(16.dp)) }
-    }
-}
-
-@Composable
-private fun SortMenu(current: Sort, onSelect: (Sort) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { open = true }) {
-            Icon(Icons.AutoMirrored.Rounded.Sort, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(current.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        DropdownMenu(open, { open = false }, shape = RoundedCornerShape(10.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHighest) {
-            Sort.entries.forEach { s -> DropdownMenuItem(text = { Text(s.label) }, onClick = { open = false; onSelect(s) }) }
-        }
     }
 }
 

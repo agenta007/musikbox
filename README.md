@@ -46,6 +46,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 - **Taste profile**: artist and genre affinity from your most-played and recently played albums, plus your stars.
 - **Daily mixes**: pick up to 5 genres and get a mix for each one, new every day. Each mix is mostly songs you like, with some you haven't heard, and no song appears in two mixes. Until you pick, they use your top genres. Your pick follows you across devices. Mixes need songs with genre tags.
 - **Discover Mix**: only songs you've **never played**, at most 2 per artist and album, with no artist twice in a row. You can play it, shuffle it, or save it as a playlist.
+- **Song radio**: *Start radio* in any song's menu, the radio button in Now Playing (Android) or the player bar (desktop) plays the song, then songs like it. With [scout](#scout-find-new-music-for-your-server) on your server and its address in *Settings → Radio*, that's Spotify's radio for the song: the songs of it your library has, in Spotify's order, followed by your server's similar songs if fewer than 10 are there. Without scout, or when it can't help, it's your server's similar songs. From Now Playing, the song carries on where it is.
 - **Sections**: *Sounds like your favourites* · *More from artists you love* · *Unplayed ⟨genre⟩* · *New in your library* · *Rediscover* (loved, but not played in 60+ days) · *Outside your comfort zone*.
 
 ### Lyrics
@@ -84,7 +85,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 ## Privacy
 
 - **The password is never stored.** musikbox keeps only the Subsonic salted token, `md5(password + salt)`. On the desktop, `settings.json` is created with mode 0600.
-- **No analytics, no trackers, no third-party services by default.** musikbox only talks to your own server and, if you use LAN sync, to your own devices. The one optional exception is the LRCLIB lyrics fallback, which is off until you enable it and can point at your own instance.
+- **No analytics, no trackers, no third-party services by default.** musikbox only talks to your own server and, if you use LAN sync, to your own devices. The one optional exception is the LRCLIB lyrics fallback, which is off until you enable it and can point at your own instance. With a scout address set, *Start radio* sends the song's artist, title and length to your own scout, signed with your Subsonic token. Scout then asks Spotify from the server, not from your device.
 - Plain HTTP is allowed because many servers live on a LAN. If you type a server address without a scheme, musikbox tries HTTPS first.
 
 ## Install
@@ -351,7 +352,7 @@ Two scripts can write the playlists in other ways. Both have the maintainer's mu
 
 ## Scout: find new music for your server
 
-Scout is an optional daemon for the machine running Navidrome. It's a separate project, kept in its own repository. It treats every artist on your server as followed, watches for their new releases, and suggests similar artists. A Navidrome admin approves each one on a web page, and scout then fetches the album from YouTube, tags it, adds it to your music folder and has Navidrome rescan.
+Scout is an optional daemon for the machine running Navidrome. It's a separate project, kept in its own repository. It treats every artist on your server as followed, watches for their new releases, and suggests similar artists. A Navidrome admin approves each one on a web page, and scout then fetches the album from YouTube, tags it, adds it to your music folder and has Navidrome rescan. It also serves Spotify song radios to musikbox's *Start radio*, using a Firefox login on the server, so no Spotify account is needed in the apps.
 
 ## Building
 

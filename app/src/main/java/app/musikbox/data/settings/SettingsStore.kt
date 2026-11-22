@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.musikbox.audio.EqSettings
+import app.musikbox.data.PlaylistSort
 import app.musikbox.lyrics.LyricsService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +36,11 @@ data class AppSettings(
     /** Ask an LRCLIB server when Navidrome has no lyrics for a song. Off: nothing leaves the user's server. */
     val lyricsOnline: Boolean = false,
     val lyricsServer: String = LyricsService.DEFAULT_LRCLIB,
+    /** Scout on the user's server, for song radio from Spotify. Empty: the server's similar songs. */
+    val scoutUrl: String = "",
+    /** How the Home playlist list is ordered. */
+    val playlistSort: PlaylistSort = PlaylistSort.Name,
+    val playlistSortReversed: Boolean = false,
     val pureBlack: Boolean = false,
     val cacheSizeMb: Int = 2048,
     val lastSyncAt: Long = 0L,
@@ -66,6 +72,9 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         val visualizer = stringPreferencesKey("visualizer_style")
         val lyricsOnline = booleanPreferencesKey("lyrics_online")
         val lyricsServer = stringPreferencesKey("lyrics_server")
+        val scoutUrl = stringPreferencesKey("scout_url")
+        val playlistSort = stringPreferencesKey("playlist_sort")
+        val playlistSortReversed = booleanPreferencesKey("playlist_sort_reversed")
         val pureBlack = booleanPreferencesKey("pure_black")
         val cacheSize = intPreferencesKey("cache_size_mb")
         val lastSync = longPreferencesKey("last_sync")
@@ -108,6 +117,9 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
             visualizerStyle = this[Keys.visualizer] ?: "Bars",
             lyricsOnline = this[Keys.lyricsOnline] ?: false,
             lyricsServer = this[Keys.lyricsServer] ?: LyricsService.DEFAULT_LRCLIB,
+            scoutUrl = this[Keys.scoutUrl] ?: "",
+            playlistSort = PlaylistSort.parse(this[Keys.playlistSort]),
+            playlistSortReversed = this[Keys.playlistSortReversed] ?: false,
             pureBlack = this[Keys.pureBlack] ?: false,
             cacheSizeMb = this[Keys.cacheSize] ?: 2048,
             lastSyncAt = this[Keys.lastSync] ?: 0L,
@@ -147,6 +159,11 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setVisualizerStyle(v: String) = context.settingsDataStore.edit { it[Keys.visualizer] = v }
     suspend fun setLyricsOnline(v: Boolean) = context.settingsDataStore.edit { it[Keys.lyricsOnline] = v }
     suspend fun setLyricsServer(v: String) = context.settingsDataStore.edit { it[Keys.lyricsServer] = v.trim() }
+    suspend fun setScoutUrl(v: String) = context.settingsDataStore.edit { it[Keys.scoutUrl] = v.trim() }
+    suspend fun setPlaylistSort(sort: PlaylistSort, reversed: Boolean) = context.settingsDataStore.edit {
+        it[Keys.playlistSort] = sort.name
+        it[Keys.playlistSortReversed] = reversed
+    }
     suspend fun setAutoDownloadSaved(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownloadSaved] = v }
     suspend fun setAutoDownloadLiked(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownloadLiked] = v }
     suspend fun setAutoDownloadAll(v: Boolean) = context.settingsDataStore.edit { it[Keys.autoDownload] = v }

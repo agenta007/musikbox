@@ -44,6 +44,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import app.musikbox.data.PlaylistSort
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
@@ -265,7 +270,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("Playlists", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                        SortMenu(state.sort, vm::setSort)
+                        SortMenu(state.sort, state.sortReversed, vm::setSort)
                     }
                 }
                 item(key = "filters") {
@@ -384,13 +389,13 @@ private fun SyncBanner(sync: SyncState, firstSync: Boolean, onRetry: () -> Unit)
 }
 
 @Composable
-private fun SortMenu(current: PlaylistSort, onSelect: (PlaylistSort) -> Unit) {
+private fun SortMenu(current: PlaylistSort, reversed: Boolean, onSelect: (PlaylistSort, Boolean) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }) {
             Icon(Icons.AutoMirrored.Rounded.Sort, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.size(6.dp))
-            Text(current.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(current.label(reversed), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(
             expanded = open,
@@ -399,8 +404,22 @@ private fun SortMenu(current: PlaylistSort, onSelect: (PlaylistSort) -> Unit) {
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             PlaylistSort.entries.forEach { s ->
-                MenuItem(s.label, Icons.AutoMirrored.Rounded.Sort) { open = false; onSelect(s) }
+                DropdownMenuItem(
+                    text = { Text(s.label, style = MaterialTheme.typography.bodyLarge) },
+                    leadingIcon = {
+                        if (s == current) Icon(Icons.Rounded.Check, "Selected") else Spacer(Modifier.size(24.dp))
+                    },
+                    // Picking another order starts in its normal direction.
+                    onClick = { open = false; onSelect(s, false) },
+                )
             }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            DropdownMenuItem(
+                text = { Text("Reverse order", style = MaterialTheme.typography.bodyLarge) },
+                leadingIcon = { Icon(Icons.Rounded.SwapVert, null) },
+                trailingIcon = { if (reversed) Icon(Icons.Rounded.Check, "On") },
+                onClick = { open = false; onSelect(current, !reversed) },
+            )
         }
     }
 }
