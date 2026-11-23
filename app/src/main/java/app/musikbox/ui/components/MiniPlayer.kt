@@ -59,6 +59,7 @@ val MiniPlayerInset = MiniPlayerHeight + 16.dp
 fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val player = LocalAppContainer.current.player
     val state by player.state.collectAsStateWithLifecycle()
+    if (state.isRadio) { RadioMiniPlayer(state, onOpen, modifier); return }
     val song = state.song ?: return
     val tint by rememberArtworkColor(state.artworkUrl, Palette.Surface3)
     val container = lerp(tint, Color(0xFF15151C), 0.68f)
@@ -146,6 +147,70 @@ fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                 .background(Color.White.copy(alpha = 0.12f)),
         ) {
             Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(Color.White.copy(alpha = 0.9f)))
+        }
+    }
+}
+
+/** The mini player while a radio station plays: its logo, name and what's on; swipe to change station. */
+@Composable
+private fun RadioMiniPlayer(state: app.musikbox.playback.PlayerUiState, onOpen: () -> Unit, modifier: Modifier) {
+    val player = LocalAppContainer.current.player
+    val tint by rememberArtworkColor(state.artworkUrl, Palette.Surface3)
+    val container = lerp(tint, Color(0xFF15151C), 0.68f)
+    val threshold = with(LocalDensity.current) { 72.dp.toPx() }
+    var drag by remember { mutableFloatStateOf(0f) }
+    val dragAnim by animateFloatAsState(drag, label = "radioMiniDrag")
+    val name = state.stationName.orEmpty()
+    Box(
+        modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .height(MiniPlayerHeight)
+            .shadow(18.dp, RoundedCornerShape(16.dp), ambientColor = tint, spotColor = tint)
+            .clip(RoundedCornerShape(16.dp))
+            .background(container)
+            .clickable(onClick = onOpen)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (drag < -threshold) player.next() else if (drag > threshold) player.previous()
+                        drag = 0f
+                    },
+                    onDragCancel = { drag = 0f },
+                ) { change, amount -> change.consume(); drag += amount }
+            },
+    ) {
+        Row(
+            Modifier.fillMaxHeight().offset { IntOffset((dragAnim * 0.4f).roundToInt(), 0) }.padding(start = 8.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            app.musikbox.ui.radio.StationLogo(name, state.artworkUrl, Modifier.size(48.dp), textSize = 14)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    state.error ?: state.streamTitle ?: "Live radio",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.error != null) Palette.Danger else Color.White.copy(alpha = 0.65f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            app.musikbox.ui.radio.EqualizerBars(state.isPlaying, Modifier.size(16.dp), color = Color.White.copy(alpha = 0.8f))
+            IconButton(onClick = player::togglePlayPause) {
+                if (state.isBuffering) {
+                    CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        if (state.isPlaying) "Pause" else "Play",
+                        tint = Color.White, modifier = Modifier.size(30.dp),
+                    )
+                }
+            }
+            IconButton(onClick = player::next, enabled = state.hasNext) {
+                Icon(Icons.Rounded.SkipNext, "Next station", tint = Color.White.copy(alpha = if (state.hasNext) 1f else 0.35f))
+            }
         }
     }
 }

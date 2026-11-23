@@ -31,6 +31,12 @@ data class DesktopSettings(
     /** How the Home playlist list is ordered: a [app.musikbox.data.PlaylistSort] name. */
     val playlistSort: String = "Name",
     val playlistSortReversed: Boolean = false,
+    /** Favourite radio stations' ids, in the order they were added. */
+    val radioFavorites: List<String> = emptyList(),
+    /** The radio list last opened ([app.musikbox.radio.RadioCategory] key). */
+    val radioCategory: String? = null,
+    /** The radio country last opened, listed first; null: the computer's country. */
+    val radioCountry: String? = null,
     /** Now Playing shows lyrics instead of the queue. */
     val showLyrics: Boolean = false,
     val pureBlack: Boolean = false,

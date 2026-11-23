@@ -64,7 +64,7 @@ class Mpris(
         conn = c
         scope.launch {
             player.state
-                .map { s -> Snapshot(s.song?.id, s.current?.uid, s.isPlaying, s.current != null, s.shuffle, s.repeat, s.volume, s.hasNext) }
+                .map { s -> Snapshot(s.radio?.station?.id ?: s.song?.id, s.current?.uid, s.isPlaying, s.current != null || s.radio != null, s.shuffle, s.repeat, s.volume, s.hasNext, s.radio?.streamTitle) }
                 .distinctUntilChanged()
                 .collect { emitChanged() }
         }
@@ -73,6 +73,7 @@ class Mpris(
     private data class Snapshot(
         val songId: String?, val uid: Long?, val playing: Boolean, val loaded: Boolean,
         val shuffle: Boolean, val repeat: Repeat, val volume: Int, val hasNext: Boolean,
+        val streamTitle: String? = null,
     )
 
     fun stop() {
@@ -134,7 +135,13 @@ class Mpris(
         val song = s.song
         val metadata = buildMap<String, Variant<*>> {
             put("mpris:trackid", Variant(DBusPath(trackPath(s.current?.uid))))
-            if (song != null) {
+            val station = s.radio?.station
+            if (station != null) {
+                // Desktop widgets show the title big: what's on, then the station as the artist.
+                put("xesam:title", Variant(s.radio.streamTitle ?: station.name))
+                put("xesam:artist", Variant(listOf(station.name), "as"))
+                station.logo?.let { put("mpris:artUrl", Variant(it)) }
+            } else if (song != null) {
                 put("mpris:length", Variant(song.durationSec * 1_000_000L))
                 put("xesam:title", Variant(song.title))
                 song.artist?.let { put("xesam:artist", Variant(listOf(it), "as")) }
@@ -147,7 +154,7 @@ class Mpris(
             "PlaybackStatus" to Variant(
                 when {
                     s.isPlaying -> "Playing"
-                    s.current != null -> "Paused"
+                    s.current != null || s.radio != null -> "Paused"
                     else -> "Stopped"
                 },
             ),

@@ -21,8 +21,14 @@ class VisualizerTap : TeeAudioProcessor.AudioBufferSink {
     private var channels = 2
     private var encoding = C.ENCODING_PCM_16BIT
 
-    /** Set while a visualizer is visible; otherwise the audio thread does no extra work. */
-    @Volatile var active = false
+    private val users = java.util.concurrent.atomic.AtomicInteger()
+
+    /** True while a visualizer is visible; otherwise the audio thread does no extra work. */
+    val active: Boolean get() = users.get() > 0
+
+    /** A visualizer came on screen. Pair every call with [release]; several may be visible at once. */
+    fun acquire() { users.incrementAndGet() }
+    fun release() { users.updateAndGet { (it - 1).coerceAtLeast(0) } }
 
     override fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) {
         synchronized(ring) {

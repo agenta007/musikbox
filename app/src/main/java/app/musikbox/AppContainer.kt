@@ -1,5 +1,7 @@
 package app.musikbox
 
+import app.musikbox.playback.CacheBypassDataSource
+import app.musikbox.radio.RadioLibrary
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -99,6 +101,9 @@ class AppContainer(context: Context) {
 
     /** PCM tap for the Now Playing visualizer (same process as the playback service). */
     val visualizerTap = VisualizerTap()
+
+    /** The bundled internet radio stations, loaded the first time they are needed. */
+    val radioStations = RadioLibrary(scope)
 
     val player = PlayerConnection(appContext, library, queueStore, scope)
 
@@ -202,10 +207,12 @@ class AppContainer(context: Context) {
             .setCache(streamCache)
             .setUpstreamDataSourceFactory(httpDataSourceFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-        return CacheDataSource.Factory()
+        val cached = CacheDataSource.Factory()
             .setCache(downloadCache)
             .setUpstreamDataSourceFactory(streaming)
             .setCacheWriteDataSinkFactory(null)
+        // Radio streams skip both caches (see CacheBypassDataSource).
+        return CacheBypassDataSource.Factory(cached, httpDataSourceFactory)
     }
 
     suspend fun streamCacheBytes(): Long = withContext(Dispatchers.IO) { streamCache.cacheSpace }

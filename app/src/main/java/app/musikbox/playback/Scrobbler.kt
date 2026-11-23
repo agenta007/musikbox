@@ -42,6 +42,7 @@ class Scrobbler(
     }
 
     private fun send(id: String, submission: Boolean) {
+        if (isRadioId(id)) return // radio stations aren't in the library
         scope.launch {
             runCatching { api.scrobble(id, submission) }
                 .onFailure { Log.d("Scrobbler", "scrobble failed (offline?): ${it.message}") }

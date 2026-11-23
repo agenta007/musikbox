@@ -17,6 +17,7 @@ sealed interface Screen {
     data class Search(val query: String = "") : Screen
     data object Downloads : Screen
     data object Discover : Screen
+    data object Radio : Screen
     data object Devices : Screen
     data object Settings : Screen
     data object NowPlaying : Screen

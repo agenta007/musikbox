@@ -1,5 +1,6 @@
 package app.musikbox.desktop.ui
 
+import androidx.compose.material.icons.rounded.SettingsInputAntenna
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -98,6 +99,7 @@ fun Sidebar(modifier: Modifier = Modifier) {
         NavItem(Icons.Rounded.Home, "Home", nav.current == Screen.Home) { nav.go(Screen.Home) }
         NavItem(Icons.Rounded.Search, "Search", nav.current is Screen.Search) { nav.go(Screen.Search()) }
         NavItem(Icons.Rounded.AutoAwesome, "Discover", nav.current == Screen.Discover) { nav.go(Screen.Discover) }
+        NavItem(Icons.Rounded.SettingsInputAntenna, "Radio", nav.current == Screen.Radio) { nav.go(Screen.Radio) }
         NavItem(
             Icons.Rounded.Download, "Downloads", nav.current == Screen.Downloads,
             badge = if (pending.isNotEmpty()) "${pending.size}" else null,

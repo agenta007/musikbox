@@ -1,5 +1,8 @@
 package app.musikbox.ui
 
+import app.musikbox.ui.radio.RadioListScreen
+import app.musikbox.ui.radio.RadioPlayerScreen
+import app.musikbox.ui.radio.RadioScreen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -70,6 +73,9 @@ import kotlinx.serialization.Serializable
 @Serializable object DownloadsRoute
 @Serializable object DiscoverRoute
 @Serializable object DevicesRoute
+@Serializable object RadioRoute
+@Serializable data class RadioListRoute(val category: String)
+@Serializable object RadioPlayerRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,7 +110,7 @@ private fun MusikboxRoot(container: AppContainer) {
             val dest = entry?.destination
             val signedIn = settings.credentials != null
             val showMini = signedIn && player.hasMedia && dest != null &&
-                !dest.hasRoute<NowPlayingRoute>() && !dest.hasRoute<LoginRoute>()
+                !dest.hasRoute<NowPlayingRoute>() && !dest.hasRoute<RadioPlayerRoute>() && !dest.hasRoute<LoginRoute>()
 
             if (signedIn) NotificationPermission()
 
@@ -132,6 +138,7 @@ private fun MusikboxRoot(container: AppContainer) {
                                 onOpenSettings = { nav.navigate(SettingsRoute) },
                                 onOpenDownloads = { nav.navigate(DownloadsRoute) },
                                 onOpenDiscover = { nav.navigate(DiscoverRoute) },
+                                onOpenRadio = { nav.navigate(RadioRoute) },
                             )
                         }
                         composable<PlaylistRoute> { backStack ->
@@ -146,6 +153,28 @@ private fun MusikboxRoot(container: AppContainer) {
                             )
                         }
                         composable<DiscoverRoute> { DiscoverScreen(onBack = { nav.popBackStack() }) }
+                        composable<RadioRoute> {
+                            RadioScreen(
+                                onBack = { nav.popBackStack() },
+                                onOpenCategory = { nav.navigate(RadioListRoute(it)) },
+                                onOpenPlayer = { nav.navigate(RadioPlayerRoute) { launchSingleTop = true } },
+                            )
+                        }
+                        composable<RadioListRoute> { backStack ->
+                            RadioListScreen(
+                                backStack.toRoute<RadioListRoute>().category,
+                                onBack = { nav.popBackStack() },
+                                onOpenPlayer = { nav.navigate(RadioPlayerRoute) { launchSingleTop = true } },
+                            )
+                        }
+                        composable<RadioPlayerRoute>(
+                            enterTransition = { slideInVertically(tween(380)) { it } },
+                            exitTransition = { fadeOut(tween(200)) },
+                            popEnterTransition = { fadeIn(tween(200)) },
+                            popExitTransition = { slideOutVertically(tween(320)) { it } },
+                        ) {
+                            RadioPlayerScreen(onCollapse = { nav.popBackStack() })
+                        }
                         composable<DevicesRoute> { DevicesScreen(onBack = { nav.popBackStack() }) }
                         composable<DownloadsRoute> {
                             DownloadsScreen(onBack = { nav.popBackStack() }, onOpenPlaylist = { nav.navigate(PlaylistRoute(it)) })
@@ -181,7 +210,10 @@ private fun MusikboxRoot(container: AppContainer) {
                     enter = slideInVertically { it } + fadeIn(),
                     exit = slideOutVertically { it } + fadeOut(),
                 ) {
-                    MiniPlayer(onOpen = { nav.navigate(NowPlayingRoute) { launchSingleTop = true } })
+                    MiniPlayer(onOpen = {
+                        if (player.isRadio) nav.navigate(RadioPlayerRoute) { launchSingleTop = true }
+                        else nav.navigate(NowPlayingRoute) { launchSingleTop = true }
+                    })
                 }
 
                 SnackbarHost(

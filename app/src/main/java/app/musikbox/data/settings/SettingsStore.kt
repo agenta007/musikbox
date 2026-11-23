@@ -41,6 +41,12 @@ data class AppSettings(
     /** How the Home playlist list is ordered. */
     val playlistSort: PlaylistSort = PlaylistSort.Name,
     val playlistSortReversed: Boolean = false,
+    /** Favourite radio stations' ids, in the order they were added. */
+    val radioFavorites: List<String> = emptyList(),
+    /** The radio list last opened ([app.musikbox.radio.RadioCategory] key). */
+    val radioCategory: String? = null,
+    /** The radio country last opened, listed first; null: the device's country. */
+    val radioCountry: String? = null,
     val pureBlack: Boolean = false,
     val cacheSizeMb: Int = 2048,
     val lastSyncAt: Long = 0L,
@@ -75,6 +81,9 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         val scoutUrl = stringPreferencesKey("scout_url")
         val playlistSort = stringPreferencesKey("playlist_sort")
         val playlistSortReversed = booleanPreferencesKey("playlist_sort_reversed")
+        val radioFavorites = stringPreferencesKey("radio_favorites")
+        val radioCategory = stringPreferencesKey("radio_category")
+        val radioCountry = stringPreferencesKey("radio_country")
         val pureBlack = booleanPreferencesKey("pure_black")
         val cacheSize = intPreferencesKey("cache_size_mb")
         val lastSync = longPreferencesKey("last_sync")
@@ -120,6 +129,9 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
             scoutUrl = this[Keys.scoutUrl] ?: "",
             playlistSort = PlaylistSort.parse(this[Keys.playlistSort]),
             playlistSortReversed = this[Keys.playlistSortReversed] ?: false,
+            radioFavorites = this[Keys.radioFavorites]?.split('\n')?.filter { it.isNotBlank() }.orEmpty(),
+            radioCategory = this[Keys.radioCategory],
+            radioCountry = this[Keys.radioCountry],
             pureBlack = this[Keys.pureBlack] ?: false,
             cacheSizeMb = this[Keys.cacheSize] ?: 2048,
             lastSyncAt = this[Keys.lastSync] ?: 0L,
@@ -160,6 +172,11 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setLyricsOnline(v: Boolean) = context.settingsDataStore.edit { it[Keys.lyricsOnline] = v }
     suspend fun setLyricsServer(v: String) = context.settingsDataStore.edit { it[Keys.lyricsServer] = v.trim() }
     suspend fun setScoutUrl(v: String) = context.settingsDataStore.edit { it[Keys.scoutUrl] = v.trim() }
+    suspend fun setRadioFavorites(ids: List<String>) = context.settingsDataStore.edit { it[Keys.radioFavorites] = ids.joinToString("\n") }
+    suspend fun setRadioCategory(key: String) = context.settingsDataStore.edit {
+        it[Keys.radioCategory] = key
+        if (key.startsWith("country:")) it[Keys.radioCountry] = key.removePrefix("country:")
+    }
     suspend fun setPlaylistSort(sort: PlaylistSort, reversed: Boolean) = context.settingsDataStore.edit {
         it[Keys.playlistSort] = sort.name
         it[Keys.playlistSortReversed] = reversed

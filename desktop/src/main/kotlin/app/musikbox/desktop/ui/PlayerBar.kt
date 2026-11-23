@@ -74,8 +74,11 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
     val player = c.player
     val state by player.state.collectAsState()
     val position by rememberPlayhead()
-    val song = state.song
-    val tint by rememberArtworkColor(c.library.coverUrl(song?.coverArt, 300), MaterialTheme.colorScheme.primary)
+    val radio = state.radio
+    val station = radio?.station
+    // While a station plays, the bar shows it; the song queue waits underneath.
+    val song = if (radio != null) null else state.song
+    val tint by rememberArtworkColor(station?.logo ?: c.library.coverUrl(song?.coverArt, 300), MaterialTheme.colorScheme.primary)
     var addTarget by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableStateOf<Float?>(null) }
 
@@ -84,7 +87,25 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
         Row(Modifier.fillMaxWidth().height(88.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             // Now playing
             Row(Modifier.weight(0.3f), verticalAlignment = Alignment.CenterVertically) {
-                if (song != null) {
+                if (station != null) {
+                    StationLogo(station.name, station.logo, Modifier.size(56.dp).clickable { nav.go(Screen.Radio) }.pointerHoverIcon(PointerIcon.Hand))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f, fill = false)) {
+                        Text(
+                            station.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable { nav.go(Screen.Radio) }.pointerHoverIcon(PointerIcon.Hand),
+                        )
+                        Text(
+                            state.error ?: radio.streamTitle ?: "Live radio · ${radio.title}", style = MaterialTheme.typography.bodySmall,
+                            color = if (state.error != null) Palette.Danger else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    val settings by c.settings.state.collectAsState()
+                    FavoriteButton(station.id in settings.radioFavorites, {
+                        c.settings.update { it.copy(radioFavorites = app.musikbox.radio.toggledFavorite(it.radioFavorites, station.id)) }
+                    }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (song != null) {
                     CoverArt(
                         song.coverArt,
                         Modifier.size(56.dp).clickable { nav.go(Screen.NowPlaying) }.pointerHoverIcon(PointerIcon.Hand),
@@ -111,11 +132,15 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
             // Transport + seek
             Column(Modifier.weight(0.4f).widthIn(max = 640.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle(Icons.Rounded.Shuffle, "Shuffle", state.shuffle, tint, player::toggleShuffle)
-                    IconButton(onClick = player::previous, enabled = state.hasPrevious) { Icon(Icons.Rounded.SkipPrevious, "Previous", Modifier.size(28.dp)) }
+                    Toggle(Icons.Rounded.Shuffle, "Shuffle", state.shuffle && radio == null, tint) { if (radio == null) player.toggleShuffle() }
+                    val hasPrevious = if (radio != null) radio.index > 0 else state.hasPrevious
+                    val hasNext = if (radio != null) radio.index < radio.stations.lastIndex else state.hasNext
+                    IconButton(onClick = player::previous, enabled = hasPrevious) {
+                        Icon(Icons.Rounded.SkipPrevious, if (radio != null) "Previous station" else "Previous", Modifier.size(28.dp))
+                    }
                     Box(
                         Modifier.size(42.dp).clip(CircleShape).background(Color.White)
-                            .clickable(enabled = song != null, onClick = player::togglePlay).pointerHoverIcon(PointerIcon.Hand),
+                            .clickable(enabled = song != null || station != null, onClick = player::togglePlay).pointerHoverIcon(PointerIcon.Hand),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (state.buffering) {
@@ -127,13 +152,22 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                             )
                         }
                     }
-                    IconButton(onClick = player::next, enabled = state.hasNext) { Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp)) }
+                    IconButton(onClick = player::next, enabled = hasNext) {
+                        Icon(Icons.Rounded.SkipNext, if (radio != null) "Next station" else "Next", Modifier.size(28.dp))
+                    }
                     Toggle(
                         if (state.repeat == Repeat.One) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        "Repeat", state.repeat != Repeat.Off, tint, player::cycleRepeat,
-                    )
+                        "Repeat", state.repeat != Repeat.Off && radio == null, tint,
+                    ) { if (radio == null) player.cycleRepeat() }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (radio != null) Row(Modifier.height(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(if (state.isPlaying) Palette.Danger else MaterialTheme.colorScheme.onSurfaceVariant))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "LIVE · Station ${radio.index + 1} of ${radio.stations.size}",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else Row(verticalAlignment = Alignment.CenterVertically) {
                     val dur = state.durationMs.coerceAtLeast(1)
                     val shownPos = dragFraction?.let { (it * dur).toLong() } ?: position
                     Text(formatTrackTime(shownPos), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(52.dp))
@@ -157,7 +191,7 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                 Toggle(Icons.Rounded.Equalizer, if (eq.active) "Equalizer: ${eq.preset}" else "Equalizer", eq.active, tint) { showEq = true }
                 if (showEq) EqualizerDialog { showEq = false }
                 val snackbar = LocalSnackbar.current
-                Toggle(Icons.Rounded.Radio, "Start radio from this song", false, tint) {
+                if (radio == null) Toggle(Icons.Rounded.Radio, "Start radio from this song", false, tint) {
                     song?.let { startRadio(c, snackbar, it, player.position.value) }
                 }
                 val linkedDevices by c.group.linked.collectAsState()
@@ -186,8 +220,9 @@ fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                     color = tint,
                     modifier = Modifier.width(110.dp),
                 )
-                val onNowPlaying = nav.current == Screen.NowPlaying
-                IconButton(onClick = { if (onNowPlaying) nav.back() else nav.go(Screen.NowPlaying) }, enabled = song != null) {
+                val target = if (radio != null) Screen.Radio else Screen.NowPlaying
+                val onNowPlaying = nav.current == target
+                IconButton(onClick = { if (onNowPlaying) nav.back() else nav.go(target) }, enabled = song != null || station != null) {
                     Icon(
                         if (onNowPlaying) Icons.Rounded.CloseFullscreen else Icons.Rounded.OpenInFull,
                         "Now playing", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp),

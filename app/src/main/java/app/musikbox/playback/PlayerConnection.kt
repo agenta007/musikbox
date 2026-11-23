@@ -10,6 +10,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import app.musikbox.data.LibraryRepository
 import app.musikbox.data.local.SongEntity
+import app.musikbox.radio.RadioStation
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,9 +37,20 @@ data class PlayerUiState(
     val currentIndex: Int = C.INDEX_UNSET,
     val hasNext: Boolean = false,
     val sourcePlaylistId: String? = null,
+    /** Set while a radio station plays (instead of [song]). */
+    val radioId: String? = null,
+    val stationName: String? = null,
+    /** What the station says is on now (its ICY title), when it says. */
+    val streamTitle: String? = null,
+    /** Why the current item doesn't play, e.g. a radio station that doesn't answer. */
+    val error: String? = null,
 ) {
-    val hasMedia get() = song != null
+    val hasMedia get() = song != null || radioId != null
+    val isRadio get() = radioId != null
 }
+
+/** The station list the radio is tuned through: a category's stations, in order. */
+data class RadioSession(val title: String, val categoryKey: String, val stations: List<RadioStation>)
 
 sealed interface SleepTimer {
     data class At(val endsAtMs: Long) : SleepTimer
@@ -67,6 +79,10 @@ class PlayerConnection(
     val sleepTimer: StateFlow<SleepTimer?> = _sleepTimer.asStateFlow()
     private var sleepJob: Job? = null
     private var saveJob: Job? = null
+
+    private val _radio = MutableStateFlow<RadioSession?>(null)
+    /** The list the playing radio station belongs to; null when no radio plays. */
+    val radio: StateFlow<RadioSession?> = _radio.asStateFlow()
 
     val positionMs: Long get() = controller?.currentPosition ?: 0L
     val bufferedMs: Long get() = controller?.bufferedPosition ?: 0L
@@ -146,6 +162,36 @@ class PlayerConnection(
             c.play()
         }
         if (playlistId != null) scope.launch { library.markPlayed(playlistId) }
+    }
+
+    /**
+     * Tune to [session]'s station [index]. All its stations go in the queue, so the notification's
+     * and headphones' next / previous change station. [subtitle] is the line under the name.
+     */
+    fun playRadio(session: RadioSession, index: Int, subtitle: (RadioStation) -> String) {
+        if (session.stations.isEmpty()) return
+        val current = _radio.value
+        if (current != null && current.categoryKey == session.categoryKey && current.stations == session.stations) {
+            tuneTo(index); return
+        }
+        _radio.value = session
+        val items = session.stations.map { it.toMediaItem(subtitle(it)) }
+        withController { c ->
+            c.shuffleModeEnabled = false
+            c.repeatMode = Player.REPEAT_MODE_OFF
+            c.setMediaItems(items, index.coerceIn(0, items.lastIndex), C.TIME_UNSET)
+            c.prepare()
+            c.play()
+        }
+    }
+
+    /** Another station of the playing radio list. */
+    fun tuneTo(index: Int) = withController { c ->
+        if (index !in 0 until c.mediaItemCount || !isRadioId(c.getMediaItemAt(index).mediaId)) return@withController
+        if (index == c.currentMediaItemIndex && c.isPlaying) return@withController
+        c.seekToDefaultPosition(index)
+        c.prepare()
+        c.play()
     }
 
     fun playPlaylist(playlistId: String, shuffle: Boolean? = null, startIndex: Int = 0) {
@@ -265,7 +311,11 @@ class PlayerConnection(
         val item = c.currentMediaItem
         val song = item?.song()
         val queue = if (rebuildQueue) buildQueue(c) else _state.value.queue
-        val duration = c.duration.takeIf { it != C.TIME_UNSET && it > 0 }
+        val radioId = item?.radioStationId()
+        if (radioId == null && _radio.value != null && c.mediaItemCount > 0) _radio.value = null
+        val stationName = if (radioId != null) item.mediaMetadata.title?.toString() else null
+        val streamTitle = if (radioId != null) c.mediaMetadata.title?.toString()?.trim()?.takeIf { it.isNotEmpty() && it != stationName } else null
+        val duration = if (radioId != null) 0L else c.duration.takeIf { it != C.TIME_UNSET && it > 0 }
             ?: (song?.durationSec?.times(1000L) ?: 0L)
         _state.value = PlayerUiState(
             connected = true,
@@ -280,6 +330,10 @@ class PlayerConnection(
             currentIndex = c.currentMediaItemIndex,
             hasNext = c.hasNextMediaItem(),
             sourcePlaylistId = item?.sourcePlaylistId(),
+            radioId = radioId,
+            stationName = stationName,
+            streamTitle = streamTitle,
+            error = c.playerError?.let { radioError(it) },
         )
     }
 
@@ -309,4 +363,16 @@ class PlayerConnection(
             )
         }
     }
+}
+
+/** A plain-language reason a station or track won't play. */
+private fun radioError(e: androidx.media3.common.PlaybackException): String = when (e.errorCode) {
+    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "The station doesn't answer"
+    androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "The station is off the air"
+    androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+    androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+    androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "This stream's format can't be played"
+    else -> "Can't play this: ${e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')}"
 }

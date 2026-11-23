@@ -10,6 +10,9 @@ import app.musikbox.desktop.data.Library
 import app.musikbox.desktop.data.SettingsRepo
 import app.musikbox.desktop.data.Song
 import app.musikbox.desktop.data.StreamCache
+import app.musikbox.radio.RadioStation
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,6 +28,18 @@ enum class Repeat { Off, All, One }
 
 data class QItem(val uid: Long, val song: Song)
 
+/** The radio list being tuned through, while a station plays instead of the queue. */
+data class RadioState(
+    val title: String,
+    val categoryKey: String,
+    val stations: List<RadioStation>,
+    val index: Int,
+    /** What the station says is on now (ICY title), when it says. */
+    val streamTitle: String? = null,
+) {
+    val station: RadioStation? get() = stations.getOrNull(index)
+}
+
 data class PlayerState(
     val current: QItem? = null,
     val isPlaying: Boolean = false,
@@ -38,6 +53,8 @@ data class PlayerState(
     val volume: Int = 80,
     val sourcePlaylistId: String? = null,
     val error: String? = null,
+    /** Set while a radio station plays; the song queue waits, paused, until a song is played. */
+    val radio: RadioState? = null,
 ) {
     val song get() = current?.song
     val hasNext get() = queue.isNotEmpty() && (pos < queue.lastIndex || repeat == Repeat.All)
@@ -94,6 +111,10 @@ class Player(
     private var error: String? = null
     private var lastSavedPosition = 0L
 
+    private var radio: RadioState? = null
+    /** The station's samples for its live waveform. */
+    val radioPcm = RadioPcm()
+
     private val _state = MutableStateFlow(PlayerState(volume = settings.current.volume))
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
@@ -148,8 +169,12 @@ class Player(
                 }
                 "time-pos" -> {
                     e.value.asDouble?.let { setPlayhead((it * 1000).toLong()) }
-                    if (kotlin.math.abs(_position.value - lastSavedPosition) > 10_000) scheduleSave()
+                    if (radio == null && kotlin.math.abs(_position.value - lastSavedPosition) > 10_000) scheduleSave()
                     return // hot path: don't republish state
+                }
+                "metadata/by-key/icy-title" -> radio?.let { r ->
+                    val title = (e.value as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() && it != r.station?.name }
+                    if (title != r.streamTitle) { radio = r.copy(streamTitle = title); onTrackChanged?.invoke() }
                 }
             }
             MpvEvent.FileLoaded -> {
@@ -157,9 +182,10 @@ class Player(
                 pendingSeekMs?.let { mpv.command("seek", it / 1000.0, "absolute") }
                 pendingSeekMs = null
             }
-            is MpvEvent.EndFile -> when (e.reason) {
-                "eof" -> onTrackEnded()
-                "error" -> onTrackError(e.error)
+            is MpvEvent.EndFile -> when {
+                radio != null -> if (e.reason == "eof" || e.reason == "error") onStationLost(e.reason == "eof")
+                e.reason == "eof" -> onTrackEnded()
+                e.reason == "error" -> onTrackError(e.error)
             }
             MpvEvent.Died -> {
                 loadedUid = null
@@ -168,6 +194,12 @@ class Player(
             }
         }
         publish()
+    }
+
+    private fun onStationLost(ended: Boolean) {
+        radioPcm.stop()
+        paused = true
+        error = if (ended) "The station stopped broadcasting" else "The station doesn't answer"
     }
 
     private fun onTrackEnded() {
@@ -211,6 +243,7 @@ class Player(
     }
 
     private fun load(item: QItem, play: Boolean, startMs: Long = 0L) {
+        leaveRadio()
         if (!mpv.isRunning) {
             startMpv().onFailure { error = it.message; publish(); return }
         }
@@ -247,6 +280,53 @@ class Player(
 
     private fun scrobble(id: String, submission: Boolean) {
         scope.launch { runCatching { api.scrobble(id, submission) } }
+    }
+
+    // ---------------------------------------------------------------- radio
+
+    /** Tune to [stations]' station [index]; the song queue keeps its place for later. */
+    fun playRadio(title: String, categoryKey: String, stations: List<RadioStation>, index: Int) {
+        if (stations.isEmpty()) return
+        if (radio == null) {
+            scrobbleLeaving(auto = false)
+            if (loadedUid != null) resumePositionMs = _position.value
+            loadedUid = null
+        }
+        radio = RadioState(title, categoryKey, stations, index.coerceIn(stations.indices))
+        tuneRadio()
+    }
+
+    /** Another station of the list now playing. */
+    fun tuneTo(index: Int) {
+        val r = radio ?: return
+        if (index !in r.stations.indices) return
+        if (index == r.index && !paused && error == null) return
+        radio = r.copy(index = index, streamTitle = null)
+        tuneRadio()
+    }
+
+    private fun tuneRadio() {
+        val station = radio?.station ?: return
+        if (!mpv.isRunning) {
+            startMpv().onFailure { error = it.message; publish(); return }
+        }
+        error = null
+        durationMs = 0
+        pendingSeekMs = null
+        _position.value = 0
+        mpv.command("loadfile", station.url, "replace")
+        mpv.setProperty("pause", false)
+        paused = false
+        radioPcm.start(station.url)
+        publish()
+        onTrackChanged?.invoke()
+    }
+
+    private fun leaveRadio() {
+        if (radio == null) return
+        radio = null
+        radioPcm.stop()
+        _position.value = resumePositionMs
     }
 
     // ---------------------------------------------------------------- commands
@@ -306,6 +386,15 @@ class Player(
     }
 
     fun togglePlay() {
+        if (radio != null) {
+            if (paused && (idle || error != null)) { tuneRadio(); return }
+            paused = !paused
+            mpv.setProperty("pause", paused)
+            // A live stream resumed after a pause would play the past: tune in afresh instead.
+            if (!paused) { tuneRadio(); return }
+            publish()
+            return
+        }
         val cur = current() ?: return
         if (loadedUid == null) {
             load(cur, play = true, startMs = resumePositionMs)
@@ -317,10 +406,11 @@ class Player(
         }
     }
 
-    fun play() { if (loadedUid == null || paused) togglePlay() }
-    fun pause() { if (loadedUid != null && !paused) togglePlay() }
+    fun play() { if ((loadedUid == null && radio == null) || paused) togglePlay() }
+    fun pause() { if ((loadedUid != null || radio != null) && !paused) togglePlay() }
 
     fun stop() {
+        leaveRadio()
         mpv.command("stop")
         loadedUid = null
         paused = true
@@ -329,12 +419,14 @@ class Player(
     }
 
     fun next() {
+        radio?.let { tuneTo(it.index + 1); return }
         if (!hasNextIndex()) return
         scrobbleLeaving(auto = false)
         advance(play = true)
     }
 
     fun previous() {
+        radio?.let { tuneTo(it.index - 1); return }
         val cur = current() ?: return
         if (_position.value > 3_000 || pos == 0 && repeat != Repeat.All) {
             if (loadedUid == null) load(cur, play = true) else seekTo(0)
@@ -346,6 +438,7 @@ class Player(
     }
 
     fun seekTo(ms: Long) {
+        if (radio != null) return // live
         val target = ms.coerceAtLeast(0)
         if (loadedUid == null) {
             resumePositionMs = target
@@ -385,6 +478,7 @@ class Player(
     }
 
     fun clear() {
+        leaveRadio()
         mpv.command("stop")
         items = emptyList(); order = emptyList(); pos = -1
         loadedUid = null; paused = true; sourcePlaylistId = null
@@ -447,9 +541,9 @@ class Player(
         val byUid = items.associateBy { it.uid }
         _state.value = PlayerState(
             current = current(),
-            isPlaying = loadedUid != null && !paused && !idle,
-            buffering = loadedUid != null && buffering,
-            durationMs = durationMs.takeIf { it > 0 } ?: ((current()?.song?.durationSec ?: 0) * 1000L),
+            isPlaying = (loadedUid != null || radio != null) && !paused && !idle,
+            buffering = (loadedUid != null || radio != null) && buffering,
+            durationMs = if (radio != null) 0L else durationMs.takeIf { it > 0 } ?: ((current()?.song?.durationSec ?: 0) * 1000L),
             queue = order.mapNotNull { byUid[it] },
             pos = pos,
             shuffle = shuffle,
@@ -457,6 +551,7 @@ class Player(
             volume = settings.current.volume,
             sourcePlaylistId = sourcePlaylistId,
             error = error,
+            radio = radio,
         )
     }
 
@@ -471,7 +566,7 @@ class Player(
                     songs = items.map { it.song },
                     order = order.mapNotNull { index[it] },
                     pos = pos,
-                    positionMs = _position.value,
+                    positionMs = if (radio != null) resumePositionMs else _position.value,
                     shuffle = shuffle,
                     repeat = repeat,
                     playlistId = sourcePlaylistId,
@@ -499,9 +594,11 @@ class Player(
         val index = items.withIndex().associate { (i, it) -> it.uid to i }
         queueStore.saveBlocking(
             if (items.isEmpty()) null else QueueSnapshot(
-                items.map { it.song }, order.mapNotNull { index[it] }, pos, _position.value, shuffle, repeat, sourcePlaylistId,
+                items.map { it.song }, order.mapNotNull { index[it] }, pos,
+                if (radio != null) resumePositionMs else _position.value, shuffle, repeat, sourcePlaylistId,
             ),
         )
+        radioPcm.stop()
         mpv.stop()
     }
 }

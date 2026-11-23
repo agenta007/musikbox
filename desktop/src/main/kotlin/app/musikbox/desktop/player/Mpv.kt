@@ -153,7 +153,7 @@ class Mpv {
         channel = ch
         Thread({ readLoop(ch) }, "mpv-ipc").apply { isDaemon = true }.start()
 
-        listOf("pause", "time-pos", "duration", "idle-active", "paused-for-cache", "volume")
+        listOf("pause", "time-pos", "duration", "idle-active", "paused-for-cache", "volume", "metadata/by-key/icy-title")
             .forEachIndexed { i, name -> command("observe_property", i + 1, name) }
     }
 

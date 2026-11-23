@@ -12,6 +12,7 @@ class MediaResolver(
 ) {
     fun resolve(item: MediaItem): MediaItem {
         if (item.localConfiguration != null) return item
+        if (isRadioId(item.mediaId)) return item.resolveRadio()
         val id = item.mediaId
         val bitrate = if (offline.isDownloaded(id)) 0 else settings.current.streamBitrate
         val url = api.streamUrl(id, bitrate) ?: return item

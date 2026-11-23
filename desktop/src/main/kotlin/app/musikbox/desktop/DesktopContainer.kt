@@ -57,6 +57,9 @@ class DesktopContainer {
     }
     val player = Player(mpv, api, settings, library, downloads, streamCache, scope, equalizer.state)
     val trackPcm = TrackPcm(api, downloads, streamCache, settings, scope)
+
+    /** The bundled internet radio stations, loaded the first time they are needed. */
+    val radioStations = app.musikbox.radio.RadioLibrary(scope)
     var mpris: Mpris? = null
         private set
     val screenLock = ScreenLock()

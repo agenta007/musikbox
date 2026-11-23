@@ -91,6 +91,7 @@ import app.musikbox.ui.components.RecentPlaylistCard
 import app.musikbox.ui.theme.Palette
 import java.util.Calendar
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.SettingsInputAntenna
 import androidx.compose.material.icons.rounded.Devices
 import app.musikbox.sync.PeerState
 import app.musikbox.sync.toEntity
@@ -113,6 +114,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenDiscover: () -> Unit,
+    onOpenRadio: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val vm: HomeViewModel = viewModel { HomeViewModel(container) }
@@ -142,7 +144,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = bottomInset + 24.dp),
         ) {
             item(key = "header") {
-                Header({ onOpenSearch("") }, onOpenSettings, onOpenDiscover)
+                Header({ onOpenSearch("") }, onOpenSettings, onOpenDiscover, onOpenRadio)
             }
 
             item(key = "handoff") { HandoffBanner() }
@@ -313,7 +315,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(onOpenSearch: () -> Unit, onOpenSettings: () -> Unit, onOpenDiscover: () -> Unit) {
+private fun Header(onOpenSearch: () -> Unit, onOpenSettings: () -> Unit, onOpenDiscover: () -> Unit, onOpenRadio: () -> Unit) {
     val greeting = remember {
         when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
             in 5..11 -> "Good morning"
@@ -341,6 +343,7 @@ private fun Header(onOpenSearch: () -> Unit, onOpenSettings: () -> Unit, onOpenD
                 )
                 Text(greeting, style = MaterialTheme.typography.headlineLarge)
             }
+            IconButton(onClick = onOpenRadio) { Icon(Icons.Rounded.SettingsInputAntenna, "Radio stations") }
             IconButton(onClick = onOpenDiscover) { Icon(Icons.Rounded.AutoAwesome, "Discover") }
             IconButton(onClick = onOpenSearch) { Icon(Icons.Rounded.Search, "Search") }
             IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, "Settings") }

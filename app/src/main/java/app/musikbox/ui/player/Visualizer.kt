@@ -40,8 +40,8 @@ fun SpectrumVisualizer(style: VisualizerStyle, tint: Color, playing: Boolean, mo
     var frame by remember { mutableIntStateOf(0) }
 
     DisposableEffect(Unit) {
-        tap.active = true
-        onDispose { tap.active = false }
+        tap.acquire()
+        onDispose { tap.release() }
     }
     LaunchedEffect(analyzer) {
         var last = 0L

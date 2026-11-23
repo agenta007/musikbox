@@ -135,6 +135,8 @@ class PlaybackService : MediaSessionService() {
         private var consecutiveErrors = 0
 
         override fun onPlayerError(error: PlaybackException) {
+            // A silent radio station stays chosen: the radio screen says so, and swiping moves on.
+            if (isRadioId(player.currentMediaItem?.mediaId)) return
             if (consecutiveErrors++ < MAX_SKIPS && player.hasNextMediaItem()) {
                 player.seekToNextMediaItem()
                 player.prepare()

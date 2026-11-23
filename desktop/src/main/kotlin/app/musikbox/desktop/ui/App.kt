@@ -80,6 +80,7 @@ private fun MainLayout(ui: AppUiState, snackbar: SnackbarHostState) {
                         is Screen.Search -> SearchScreen(screen.query)
                         Screen.Downloads -> DownloadsScreen()
                         Screen.Discover -> DiscoverScreen()
+                        Screen.Radio -> RadioScreen()
                         Screen.Devices -> DevicesScreen()
                         Screen.Settings -> SettingsScreen()
                         Screen.NowPlaying -> NowPlayingScreen()

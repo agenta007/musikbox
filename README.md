@@ -49,6 +49,12 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 - **Song radio**: *Start radio* in any song's menu, the radio button in Now Playing (Android) or the player bar (desktop) plays the song, then songs like it. With [scout](#scout-find-new-music-for-your-server) on your server and its address in *Settings → Radio*, that's Spotify's radio for the song: the songs of it your library has, in Spotify's order, followed by your server's similar songs if fewer than 10 are there. Without scout, or when it can't help, it's your server's similar songs. From Now Playing, the song carries on where it is.
 - **Sections**: *Sounds like your favourites* · *More from artists you love* · *Unplayed ⟨genre⟩* · *New in your library* · *Rediscover* (loved, but not played in 60+ days) · *Outside your comfort zone*.
 
+### Internet radio
+- **31,857 stations from 222 countries**, built in: no account, nothing to set up. Open *Radio* (the antenna on Android's Home, the sidebar on desktop) and browse by **country** (the last one you opened comes first) or by **genre** (18, from Pop and News to Jazz & Blues, Country & Folk and Religious), or search them by name.
+- **The tuner**: the list's stations as cards to swipe through (on desktop: drag, scroll or the arrows), each with its logo and the station's **live waveform**, over an FM-style dial that turns as you swipe; drag or tap the dial to tune. What the station says is on now shows under its name. Headphone and notification next / previous change station too.
+- **Favourite stations**: the heart on any station keeps it in *Favourites*, which becomes a list of its own to tune through.
+- Station list: [Radio Browser](https://www.radio-browser.info/), bundled with the app (`tools/build_radio_catalog.py` rebuilds it). Streams come straight from each station. On desktop the waveform needs a second connection to the station while it plays (not on Windows).
+
 ### Lyrics
 - **From your own server first.** Navidrome serves lyrics from embedded tags and from files next to each song (`.lrc`, `.elrc`, `.ttml`, `.srt`, `.txt`). musikbox asks for them with the OpenSubsonic `getLyricsBySongId` call, and falls back to classic `getLyrics` on older servers.
 - **Synced lyrics follow the song.** The line being sung is highlighted and kept a third of the way down, and you can tap or click a line to jump there. Plain lyrics just scroll.
@@ -85,7 +91,7 @@ Navidrome provides the raw material but has no recommender of its own: play coun
 ## Privacy
 
 - **The password is never stored.** musikbox keeps only the Subsonic salted token, `md5(password + salt)`. On the desktop, `settings.json` is created with mode 0600.
-- **No analytics, no trackers, no third-party services by default.** musikbox only talks to your own server and, if you use LAN sync, to your own devices. The one optional exception is the LRCLIB lyrics fallback, which is off until you enable it and can point at your own instance. With a scout address set, *Start radio* sends the song's artist, title and length to your own scout, signed with your Subsonic token. Scout then asks Spotify from the server, not from your device.
+- **No analytics, no trackers, no third-party services by default.** musikbox only talks to your own server and, if you use LAN sync, to your own devices. Internet radio connects straight to the station you pick (its logo comes from its own website). The one optional exception is the LRCLIB lyrics fallback, which is off until you enable it and can point at your own instance. With a scout address set, *Start radio* sends the song's artist, title and length to your own scout, signed with your Subsonic token. Scout then asks Spotify from the server, not from your device.
 - Plain HTTP is allowed because many servers live on a LAN. If you type a server address without a scheme, musikbox tries HTTPS first.
 
 ## Install
