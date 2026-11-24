@@ -121,7 +121,7 @@ class Library(
                 val kept = d.playlists.filterKeys { it in remoteIds }
                 val merged = remote.associate { dto ->
                     val old = kept[dto.id]
-                    val fresh = dto.toPlaylist(old?.tracksSyncedChanged, old?.trackIds.orEmpty())
+                    val fresh = dto.toPlaylist(old?.tracksSyncedChanged, old?.trackIds.orEmpty(), old?.serverPlays)
                     // Keep the track-sum duration while the playlist is unchanged on the server.
                     dto.id to if (old != null && old.changed == fresh.changed) {
                         fresh.copy(durationSec = maxOf(fresh.durationSec, old.durationSec))
@@ -130,7 +130,7 @@ class Library(
                 d.copy(playlists = merged + kept.filterKeys { it == LIKED_PLAYLIST_ID }, prefs = d.prefs.filterKeys { it in remoteIds })
             }
             val outdated = data.value.playlists.values.filter {
-                force || it.tracksSyncedChanged == null || it.tracksSyncedChanged != (it.changed ?: "")
+                force || it.tracksSyncedChanged == null || it.tracksSyncedChanged != (it.changed ?: "") || it.serverPlays == null
             }
             val gate = Semaphore(4)
             coroutineScope { outdated.filter { it.id != LIKED_PLAYLIST_ID }.map { p -> async { gate.withPermit { syncTracks(p.id) } } }.awaitAll() }
@@ -150,11 +150,15 @@ class Library(
         val dto = api.getPlaylist(playlistId)
         val songs = dto.entry.filterNot { it.isDir }.map { it.toSong() }
         val total = songs.sumOf { it.durationSec.toLong() }
-        val playlist = dto.toPlaylist(dto.changed ?: "", songs.map { it.id })
+        val plays = dto.entry.filterNot { it.isDir }.sumOf { it.playCount }
+        val playlist = dto.toPlaylist(dto.changed ?: "", songs.map { it.id }, plays)
         mutate { d ->
+            // The server's counts now include what was played from it here.
+            val prefs = d.prefs[playlistId]?.takeIf { it.localPlays != 0 }?.let { d.prefs + (playlistId to it.copy(localPlays = 0)) } ?: d.prefs
             d.copy(
                 playlists = d.playlists + (playlistId to playlist.copy(durationSec = maxOf(playlist.durationSec, total))),
                 songs = d.songs + songs.associateBy { it.id },
+                prefs = prefs,
             )
         }
     }
@@ -220,6 +224,11 @@ class Library(
         mutate { d -> d.copy(prefs = d.prefs + (id to block(d.prefs[id] ?: Prefs()))) }
 
     fun markPlayed(id: String) = updatePrefs(id) { it.copy(lastPlayedAt = System.currentTimeMillis()) }
+
+    /** A song from playlist [id] was played through (a scrobble): it counts towards "Most played". */
+    fun countPlay(id: String) {
+        if (id in data.value.playlists) updatePrefs(id) { it.copy(localPlays = it.localPlays + 1) }
+    }
 
     fun toggleFavorite(id: String) = updatePrefs(id) {
         val fav = !it.isFavorite

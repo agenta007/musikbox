@@ -69,7 +69,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
-        player.addListener(Scrobbler(player, container.api, scope))
+        player.addListener(Scrobbler(player, container.api, scope) { container.library.countPlay(it) })
         player.addListener(SkipUnplayable(player))
 
         val activityIntent = PendingIntent.getActivity(

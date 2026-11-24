@@ -275,7 +275,10 @@ class Player(
         if (loadedUid != item.uid) return
         val duration = item.song.durationSec * 1000L
         val threshold = min(duration / 2, 240_000L)
-        if (auto || (duration > 0 && _position.value >= threshold)) scrobble(item.song.id, submission = true)
+        if (auto || (duration > 0 && _position.value >= threshold)) {
+            scrobble(item.song.id, submission = true)
+            sourcePlaylistId?.let(library::countPlay)
+        }
     }
 
     private fun scrobble(id: String, submission: Boolean) {

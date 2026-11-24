@@ -2,6 +2,7 @@ package app.musikbox
 
 import app.musikbox.data.PlaylistSort
 import app.musikbox.data.PlaylistSortFields
+import app.musikbox.data.playlistPlays
 import app.musikbox.data.sortedForPlaylists
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -63,6 +64,19 @@ class PlaylistSortTest {
         Locale.setDefault(Locale.ENGLISH)
         assertEquals(listOf("road trip", "Zebra", "Ambient", "Émotions"), names(PlaylistSort.Owner))
         assertEquals(listOf("Ambient", "road trip", "Zebra", "Émotions"), names(PlaylistSort.Owner, reversed = true))
+    }
+
+    @Test fun mostPlayedFromServerCountsAndPlaysSince() {
+        Locale.setDefault(Locale.ENGLISH)
+        val lists = listOf(
+            PlaylistSortFields("Gym", plays = playlistPlays(serverPlays = 120, localPlays = 3)),
+            PlaylistSortFields("Sleep", plays = playlistPlays(serverPlays = null, localPlays = 0)),
+            PlaylistSortFields("Car", plays = playlistPlays(serverPlays = 90, localPlays = 40)),
+            PlaylistSortFields("Abba", plays = playlistPlays(serverPlays = 123, localPlays = 0)),
+        )
+        val names = { r: Boolean -> lists.sortedForPlaylists(PlaylistSort.Plays, r) { it }.map { it.name } }
+        assertEquals(listOf("Car", "Abba", "Gym", "Sleep"), names(false)) // 130, 123 = 123 ties by name, 0
+        assertEquals(listOf("Sleep", "Abba", "Gym", "Car"), names(true))
     }
 
     @Test fun storedNames() {

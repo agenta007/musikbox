@@ -94,6 +94,7 @@ private fun PlaylistItem.sortFields() = PlaylistSortFields(
     created = playlist.created,
     changed = playlist.changed,
     lastPlayedAt = lastPlayedAt,
+    plays = plays,
     songCount = playlist.songCount,
     durationSec = playlist.durationSec,
 )

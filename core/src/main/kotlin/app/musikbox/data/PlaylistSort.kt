@@ -9,9 +9,10 @@ import java.util.Locale
  */
 enum class PlaylistSort(val label: String, val reversedLabel: String) {
     Name("Name", "Name, Z to A"),
+    Plays("Most played", "Least played"),
+    Played("Recently played", "Least recently played"),
     Added("Date added", "Date added, oldest first"),
     Updated("Recently updated", "Least recently updated"),
-    Played("Recently played", "Least recently played"),
     Songs("Most songs", "Fewest songs"),
     Length("Longest", "Shortest"),
     Owner("Owner", "Owner, Z to A");
@@ -32,6 +33,8 @@ data class PlaylistSortFields(
     val created: String? = null,
     val changed: String? = null,
     val lastPlayedAt: Long? = null,
+    /** How often its songs were played: see [playlistPlays]. */
+    val plays: Long = 0,
     val songCount: Int = 0,
     val durationSec: Long = 0,
 )
@@ -50,6 +53,7 @@ fun <T> List<T>.sortedForPlaylists(sort: PlaylistSort, reversed: Boolean, fields
             PlaylistSort.Added -> f.created?.takeIf { it.isNotBlank() }?.let(::Descending)
             PlaylistSort.Updated -> f.changed?.takeIf { it.isNotBlank() }?.let(::Descending)
             PlaylistSort.Played -> f.lastPlayedAt?.let(::Descending)
+            PlaylistSort.Plays -> Descending(f.plays)
             PlaylistSort.Songs -> Descending(f.songCount)
             PlaylistSort.Length -> Descending(f.durationSec)
             PlaylistSort.Owner -> f.owner?.takeIf { it.isNotBlank() }?.let(::nameSortKey)
@@ -97,3 +101,10 @@ internal fun nameSortKey(text: String): String {
 private class Descending<V : Comparable<V>>(val value: V) : Comparable<Descending<V>> {
     override fun compareTo(other: Descending<V>) = other.value.compareTo(value)
 }
+
+/**
+ * A playlist's play count for "Most played": the server's play counts of its songs, summed when
+ * its tracks were last synced ([serverPlays]; null before that), plus the songs played from it
+ * on this device since ([localPlays]), which the next sync's sum takes over.
+ */
+fun playlistPlays(serverPlays: Long?, localPlays: Int): Long = (serverPlays ?: 0L) + localPlays

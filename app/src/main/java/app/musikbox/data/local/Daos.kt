@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 private const val PLAYLIST_SELECT =
     "SELECT p.*, IFNULL(pr.isFavorite, 0) AS isFavorite, pr.lastPlayedAt AS lastPlayedAt, " +
-        "IFNULL(pr.offline, 0) AS offline " +
+        "IFNULL(pr.offline, 0) AS offline, IFNULL(pr.localPlays, 0) AS localPlays " +
         "FROM playlists p LEFT JOIN playlist_prefs pr ON pr.playlistId = p.id"
 
 @Dao

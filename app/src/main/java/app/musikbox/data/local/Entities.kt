@@ -22,6 +22,8 @@ data class PlaylistEntity(
     val changed: String?,
     /** The server's `changed` stamp at the moment tracks were last cached; null = never cached. */
     val tracksSyncedChanged: String?,
+    /** Its songs' play counts on the server, summed when tracks were last cached; null = not yet. */
+    val serverPlays: Long? = null,
 )
 
 /** Local-only state the Subsonic API has no notion of. Survives server re-syncs. */
@@ -35,6 +37,8 @@ data class PlaylistPrefs(
     /** When [isFavorite] / [offline] last changed — for last-writer-wins sync between devices. */
     @ColumnInfo(defaultValue = "0") val favoriteChangedAt: Long = 0,
     @ColumnInfo(defaultValue = "0") val offlineChangedAt: Long = 0,
+    /** Songs played from it on this device since its tracks were last synced (see playlistPlays). */
+    @ColumnInfo(defaultValue = "0") val localPlays: Int = 0,
 )
 
 @Serializable
@@ -76,9 +80,12 @@ data class PlaylistItem(
     val isFavorite: Boolean,
     val lastPlayedAt: Long?,
     val offline: Boolean,
+    val localPlays: Int = 0,
 ) {
     val id get() = playlist.id
     val name get() = playlist.name
+    /** For "Most played". */
+    val plays get() = app.musikbox.data.playlistPlays(playlist.serverPlays, localPlays)
 }
 
 data class PlaylistTrack(

@@ -42,6 +42,8 @@ data class Playlist(
     /** Server `changed` stamp when [trackIds] were last fetched; null = never. */
     val tracksSyncedChanged: String? = null,
     val trackIds: List<String> = emptyList(),
+    /** Its songs' play counts on the server, summed when [trackIds] were last fetched; null = not yet. */
+    val serverPlays: Long? = null,
 )
 
 /** Local-only state Subsonic has no notion of. */
@@ -54,6 +56,8 @@ data class Prefs(
     /** When [isFavorite] / [offline] last changed — for last-writer-wins sync between devices. */
     val favoriteChangedAt: Long = 0,
     val offlineChangedAt: Long = 0,
+    /** Songs played from it on this computer since its tracks were last fetched (see playlistPlays). */
+    val localPlays: Int = 0,
 )
 
 @Serializable
@@ -69,6 +73,8 @@ data class PlaylistItem(val playlist: Playlist, val prefs: Prefs) {
     val isFavorite get() = prefs.isFavorite
     val offline get() = prefs.offline
     val lastPlayedAt get() = prefs.lastPlayedAt
+    /** For "Most played". */
+    val plays get() = app.musikbox.data.playlistPlays(playlist.serverPlays, prefs.localPlays)
 }
 
 fun SongDto.toSong() = Song(
@@ -77,8 +83,8 @@ fun SongDto.toSong() = Song(
     durationSec = duration, bitRate = bitRate, suffix = suffix, sizeBytes = size, starred = starred != null,
 )
 
-fun PlaylistDto.toPlaylist(tracksSyncedChanged: String?, trackIds: List<String>) = Playlist(
+fun PlaylistDto.toPlaylist(tracksSyncedChanged: String?, trackIds: List<String>, serverPlays: Long? = null) = Playlist(
     id = id, name = name, comment = comment, owner = owner, isPublic = public, songCount = songCount,
     durationSec = duration, coverArt = coverArt, created = created, changed = changed,
-    tracksSyncedChanged = tracksSyncedChanged, trackIds = trackIds,
+    tracksSyncedChanged = tracksSyncedChanged, trackIds = trackIds, serverPlays = serverPlays,
 )

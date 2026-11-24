@@ -5,7 +5,7 @@ import app.musikbox.data.local.SongEntity
 import app.musikbox.data.remote.PlaylistDto
 import app.musikbox.data.remote.SongDto
 
-fun PlaylistDto.toEntity(tracksSyncedChanged: String?) = PlaylistEntity(
+fun PlaylistDto.toEntity(tracksSyncedChanged: String?, serverPlays: Long? = null) = PlaylistEntity(
     id = id,
     name = name,
     comment = comment,
@@ -17,6 +17,7 @@ fun PlaylistDto.toEntity(tracksSyncedChanged: String?) = PlaylistEntity(
     created = created,
     changed = changed,
     tracksSyncedChanged = tracksSyncedChanged,
+    serverPlays = serverPlays,
 )
 
 fun SongDto.toEntity() = SongEntity(

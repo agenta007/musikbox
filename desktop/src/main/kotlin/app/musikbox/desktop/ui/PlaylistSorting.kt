@@ -40,7 +40,7 @@ fun List<PlaylistItem>.sortedLike(settings: DesktopSettings): List<PlaylistItem>
     sortedForPlaylists(PlaylistSort.parse(settings.playlistSort), settings.playlistSortReversed) {
         PlaylistSortFields(
             name = it.name, owner = it.playlist.owner, created = it.playlist.created, changed = it.playlist.changed,
-            lastPlayedAt = it.lastPlayedAt, songCount = it.playlist.songCount, durationSec = it.playlist.durationSec,
+            lastPlayedAt = it.lastPlayedAt, plays = it.plays, songCount = it.playlist.songCount, durationSec = it.playlist.durationSec,
         )
     }
 

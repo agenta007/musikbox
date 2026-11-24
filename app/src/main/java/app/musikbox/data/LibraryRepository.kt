@@ -106,14 +106,14 @@ class LibraryRepository(
             }
             val entities = remote.map { dto ->
                 val old = existing[dto.id]
-                val e = dto.toEntity(old?.tracksSyncedChanged)
+                val e = dto.toEntity(old?.tracksSyncedChanged, old?.serverPlays)
                 // Keep the track-sum duration computed in syncTracks while the playlist is unchanged.
                 if (old != null && old.changed == e.changed) e.copy(durationSec = maxOf(e.durationSec, old.durationSec)) else e
             }
             playlistDao.upsert(entities)
 
             val outdated = entities.filter {
-                force || it.tracksSyncedChanged == null || it.tracksSyncedChanged != (it.changed ?: "")
+                force || it.tracksSyncedChanged == null || it.tracksSyncedChanged != (it.changed ?: "") || it.serverPlays == null
             }
             val gate = Semaphore(4)
             coroutineScope {
@@ -142,8 +142,11 @@ class LibraryRepository(
         val songs = dto.entry.filterNot { it.isDir }.map { it.toEntity() }
         trackDao.replaceTracks(playlistId, songs)
         // Some servers report a stale or zero playlist duration; the track sum is authoritative.
-        val entity = dto.toEntity(tracksSyncedChanged = dto.changed ?: "")
+        val plays = dto.entry.filterNot { it.isDir }.sumOf { it.playCount }
+        val entity = dto.toEntity(tracksSyncedChanged = dto.changed ?: "", serverPlays = plays)
         playlistDao.upsert(listOf(entity.copy(durationSec = maxOf(entity.durationSec, songs.sumOf { it.durationSec.toLong() }))))
+        // The server's counts now include what was played from it here.
+        playlistDao.getPrefs(playlistId)?.takeIf { it.localPlays != 0 }?.let { playlistDao.upsertPrefs(it.copy(localPlays = 0)) }
     }
 
     /** Liked list = the server's ⭐ songs, newest first. Cheap: one request. */
@@ -296,6 +299,13 @@ class LibraryRepository(
             before[id]?.offline != r.offline || (before[id]?.isFavorite ?: false) != r.favorite
         }
         if (membership) reconcileDownloads("changes from another device")
+    }
+
+    /** A song from [playlistId] was played through (a scrobble): it counts towards "Most played". */
+    suspend fun countPlay(playlistId: String) {
+        if (playlistDao.get(playlistId) == null) return
+        val p = prefs(playlistId)
+        playlistDao.upsertPrefs(p.copy(localPlays = p.localPlays + 1))
     }
 
     suspend fun markPlayed(playlistId: String) {

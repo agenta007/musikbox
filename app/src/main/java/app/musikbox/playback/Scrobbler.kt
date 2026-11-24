@@ -16,6 +16,8 @@ class Scrobbler(
     private val player: Player,
     private val api: SubsonicClient,
     private val scope: CoroutineScope,
+    /** A song from this playlist was played through. */
+    private val onPlayedFrom: suspend (playlistId: String) -> Unit = {},
 ) : Player.Listener {
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -32,13 +34,20 @@ class Scrobbler(
         if (!auto && oldPosition.mediaItemIndex == newPosition.mediaItemIndex) return
         val duration = previous.mediaMetadata.durationMs ?: 0L
         val threshold = min(duration / 2, 240_000L)
-        if (auto || (duration > 0 && oldPosition.positionMs >= threshold)) send(previous.mediaId, submission = true)
+        if (auto || (duration > 0 && oldPosition.positionMs >= threshold)) played(previous)
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
-            player.currentMediaItem?.mediaId?.let { send(it, submission = true) }
+            player.currentMediaItem?.let(::played)
         }
+    }
+
+    private fun played(item: MediaItem) {
+        send(item.mediaId, submission = true)
+        val playlist = item.sourcePlaylistId() ?: return
+        if (isRadioId(item.mediaId)) return
+        scope.launch { runCatching { onPlayedFrom(playlist) } }
     }
 
     private fun send(id: String, submission: Boolean) {

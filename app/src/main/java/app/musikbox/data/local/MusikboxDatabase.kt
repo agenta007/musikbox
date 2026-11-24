@@ -9,11 +9,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PlaylistEntity::class, PlaylistPrefs::class, SongEntity::class, PlaylistTrackEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class MusikboxDatabase : RoomDatabase() {
     // v2: per-field change stamps on playlist prefs, for device sync. Keeps favourites & download list.
+    // v3: play counts for sorting by "Most played".
     abstract fun playlistDao(): PlaylistDao
     abstract fun trackDao(): TrackDao
 
@@ -21,7 +22,7 @@ abstract class MusikboxDatabase : RoomDatabase() {
         fun build(context: Context): MusikboxDatabase =
             Room.databaseBuilder(context, MusikboxDatabase::class.java, "musikbox.db")
                 // Everything except playlist prefs is a mirror of the server; safe to rebuild.
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .fallbackToDestructiveMigration()
                 .build()
     }
@@ -31,5 +32,13 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE playlist_prefs ADD COLUMN favoriteChangedAt INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE playlist_prefs ADD COLUMN offlineChangedAt INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Null server plays make the next sync fetch every playlist's tracks once, to count them. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE playlists ADD COLUMN serverPlays INTEGER")
+        db.execSQL("ALTER TABLE playlist_prefs ADD COLUMN localPlays INTEGER NOT NULL DEFAULT 0")
     }
 }
