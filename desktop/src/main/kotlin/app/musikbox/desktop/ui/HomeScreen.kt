@@ -86,10 +86,12 @@ fun HomeScreen() {
     val nav = LocalNav.current
     val all by c.library.playlists.collectAsState()
     val recent by c.library.recent.collectAsState()
-    val saved by c.library.saved.collectAsState()
+    val savedRaw by c.library.saved.collectAsState()
     val liked by c.library.liked.collectAsState()
     val player by c.player.state.collectAsState()
     val settings by c.settings.state.collectAsState()
+    // Saved playlists follow the order picked in the sort menu, like the full list.
+    val saved = savedRaw.sortedLike(settings)
     val menu = rememberPlaylistMenu()
 
     var filter by remember { mutableStateOf(Filter.All) }

@@ -66,7 +66,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         val s = settings.playlistSort
         val reversed = settings.playlistSortReversed
         val sorted = filtered.sortedForPlaylists(s, reversed) { it.sortFields() }
-        HomeUiState(true, recent, liked, saved, sorted, all.size, f, s, reversed, q, sync)
+        // Saved playlists follow the same order as the full list.
+        val savedSorted = saved.sortedForPlaylists(s, reversed) { it.sortFields() }
+        HomeUiState(true, recent, liked, savedSorted, sorted, all.size, f, s, reversed, q, sync)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     val downloads: StateFlow<DownloadsSummary> = combine(

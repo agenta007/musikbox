@@ -71,9 +71,11 @@ fun Sidebar(modifier: Modifier = Modifier) {
     val c = LocalContainer.current
     val nav = LocalNav.current
     val playlists by c.library.playlists.collectAsState()
-    val saved by c.library.saved.collectAsState()
+    val savedRaw by c.library.saved.collectAsState()
     val liked by c.library.liked.collectAsState()
     val settings by c.settings.state.collectAsState()
+    // Saved playlists follow the order picked in the sort menu, like the full list.
+    val saved = savedRaw.sortedLike(settings)
     val rules = DownloadRules(settings.autoDownloadAll, settings.autoDownloadSaved, settings.autoDownloadLiked)
     val onDisk = { p: PlaylistItem -> inDownloadList(p.id, p.offline, p.isFavorite, rules) }
     val player by c.player.state.collectAsState()
